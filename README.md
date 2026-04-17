@@ -40,3 +40,36 @@ Official API documentation for the Webot US cryptocurrency exchange.
 | `DELETE /api/v1/trade/allOrders` | Cancel all orders |
 | `GET /api/v1/trade/fills` | Get trade fills |
 | `GET /api/v1/trade/fillsByOrderId` | Get fills by order ID |
+
+## Quick Start
+
+### 1. Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Configure credentials
+
+Apply for an API Key at: https://www.pionex.us/en-US/my-account/api
+
+> **Note:** You need to contact the official team to enable API whitelist access before you can create an API Key.
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and fill in your API Key and Secret:
+
+```
+API_KEY=your_api_key_here
+API_SECRET=your_api_secret_here
+```
+
+### 3. Run the test script
+
+```bash
+python3 test_openapi.py
+```
+
+The script tests all public endpoints (no auth) and private endpoints (HMAC SHA256 signed), and prints a summary at the end.
