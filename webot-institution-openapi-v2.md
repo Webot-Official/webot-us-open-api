@@ -178,6 +178,8 @@ Codes below may be returned by any endpoint (base set). Endpoint-specific busine
 | `P_PAY_OPEN_API_SERVICE_UNAVAILABLE` | A dependency is temporarily unavailable; retry later. |
 | `P_PAY_OPEN_API_TIMEOUT` | The request timed out; retry later. |
 | `P_PAY_OPEN_API_INTERNAL_ERROR` | Internal error. |
+| `P_PAY_OPEN_API_OPERATION_NOT_SUPPORTED` | The channel does not support this operation. Do not retry. |
+| `P_PAY_OPEN_API_CHANNEL_NOT_SUPPORTED_IN_REGION` | The requested `channel` is not available for your integration. Do not retry with the same channel. |
 
 ---
 
@@ -274,8 +276,8 @@ The complete field list, required markers, formats, conditional rules, enums, an
 
 Channel KYB fields are **dynamic** — **call `GET /wire/deposit/account/requirements` first**, then fill per the returned `Requirement` items. Do not hard-code channel field lists.
 
-- **`mode`** tells you whether an item is `REQUIRED`, `OPTIONAL`, or `CONDITIONAL`.
-- **`CONDITIONAL`** items carry a `condition` (an `ALL`/`ANY` set of predicates over other fields) describing when the item becomes required. Evaluating to `false` means "not currently required"; the final decision rests with the channel.
+- **`mode`** is the source of truth for whether to submit an item: `REQUIRED` (must submit), `OPTIONAL`, or `CONDITIONAL`.
+- **`CONDITIONAL`** means the item becomes required only when other fields take certain values; when unsure, submit it. The final decision rests with the channel.
 - **`kind`** is `FIELD` or `DOCUMENT`. Documents are referenced by `fileId` (upload first — see [File Endpoints](#file-endpoints)); do not inline file bytes.
 - Representatives are grouped by `representativeRef`; fill each representative's own `fields` / `documents`.
 - `regex` / `example` / `enumValues` on a field are for client-side validation and hints.
@@ -293,7 +295,7 @@ POST /api/v2/institution/kyb/create
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| userId | string | Yes | Sub-account UUID. A `userId` has a single platform KYB application; resubmitting updates it. |
+| userId | string | Yes | Sub-account UUID. A `userId` has a single platform KYB application; resubmitting updates it while it is still under review. Once `APPROVED`, it can no longer be resubmitted. |
 | subject | object | No | Subject fields: `{ "fields": [ { "key": "...", "value": "..." } ] }`. Keys are canonical keys. |
 | representatives | object[] | No | Each: `{ "representativeRef": "...", "fields": [ ... ] }`. |
 | documents | object[] | No | Each: `{ "purpose": "...", "fileId": "...", "scope": "SUBJECT|REPRESENTATIVE", "representativeRef": "..." }`. |
@@ -305,6 +307,13 @@ POST /api/v2/institution/kyb/create
 ```
 
 Validation (key validity + unconditional required + enum) passing returns `SUBMITTED`; otherwise `P_PAY_OPEN_API_INVALID_ARGUMENT` and nothing is stored.
+
+**Errors:**
+
+| Error Code | Description |
+|------------|-------------|
+| `P_PAY_OPEN_API_KYB_ALREADY_APPROVED` | Platform KYB is already `APPROVED` and can no longer be resubmitted. |
+| `P_PAY_OPEN_API_KYB_SUBMIT_IN_PROGRESS` | A submission for this `userId` is already being processed; retry later. |
 
 ### 2. Get Platform KYB Status
 
@@ -357,7 +366,7 @@ GET /api/v2/institution/wire/deposit/account/requirements
 | termsVersion | string | Terms version; non-empty only for `INLINE_ACCEPT`. |
 | requiresBusinessType | boolean | Whether a business type is still needed to refine the list. Always `false` in this API — the business type comes from platform KYB. |
 
-`Requirement`: `{ key, kind (FIELD|DOCUMENT), mode (REQUIRED|OPTIONAL|CONDITIONAL), label, regex, example, enumValues[], condition }`.
+`Requirement`: `{ key, kind (FIELD|DOCUMENT), mode (REQUIRED|OPTIONAL|CONDITIONAL), label, regex, example, enumValues[] }`. Use `mode` to decide whether to submit an item (`REQUIRED` → must submit).
 
 ### 4. Onboard a Deposit Account (Channel KYB)
 
@@ -648,7 +657,7 @@ GET /api/v2/institution/wire/deposit/accounts
 
 **Response Fields:** `list[]` of `DepositAccount`, plus `total`.
 
-`DepositAccount`: `{ channel, accountId, currency, status, channelStatus, instructions[], feeAmount, minDepositAmount, maxDepositAmount }`, where `status` ∈ `PENDING` (not yet remittable) / `ACTIVE` (remittable) / `UNAVAILABLE` / `CLOSED`, and each `instructions[]` element (`FundingInstruction`) carries the wire fields: `{ rails[], bankName, bankAddress, accountNumber, routingCode, swiftBic, accountHolderName, accountHolderAddress, reference, channelExtra[] }`.
+`DepositAccount`: `{ channel, accountId, currency, status, channelStatus, instructions[], feeAmount, minDepositAmount, maxDepositAmount }`, where `status` ∈ `PENDING` (not yet remittable) / `ACTIVE` (remittable) / `UNAVAILABLE` / `CLOSED`, and each `instructions[]` element (`FundingInstruction`) carries the wire fields: `{ rails[], message, bankName, bankAddress, accountNumber, routingCode, routingCodeAlternate, swiftBic, accountHolderName, accountHolderAddress, reference, channelExtra[] }`.
 
 ### 2. List Deposit Orders
 
@@ -684,9 +693,11 @@ GET /api/v2/institution/wire/deposit/order
 }
 ```
 
-`createdAt` / `updatedAt` / `creditedAt` / `completedAt` are all millisecond Unix timestamps (`int64`); lifecycle fields are `0` before the event occurs (`creditedAt` before crediting, `completedAt` before the final state).
-
 `status` (`DepositOrderStatus`): `PENDING` (processing) / `CREDITED` (credited, not settled) / `COMPLETED` (final) / `FAILED` (final) / `CANCELED` (final).
+
+On a non-success status (e.g. `FAILED`), the order also carries a `reason` object `{ code, message, retryable }`.
+
+`createdAt` / `updatedAt` / `creditedAt` / `completedAt` are all millisecond Unix timestamps (`int64`); a lifecycle field is `0` until that event occurs (`creditedAt` before crediting, `completedAt` before the order is final).
 
 ---
 
@@ -704,7 +715,7 @@ GET /api/v2/institution/wire/payout/account/requirements
 
 **Request Parameters:** `userId` (required), `channel`, `country`, `currency`, `rail`.
 
-**Response Fields:** `{ channel, requirements[] }`, each `FieldRequirement`: `{ key, label, required, regex, isExtra }` (`isExtra=true` → put into `channelExtra`).
+**Response Fields:** `{ channel, requirements[] }`, each `FieldRequirement`: `{ key, label, required, regex, isExtra, kind }`. `isExtra=true` → put the value into `channelExtra`. `kind` is `FIELD` (default) or `DOCUMENT`; a `DOCUMENT` field is supplied via `spec.documents` (upload the file first, reference by `fileId`), not as a plain value.
 
 ### 2. Create Payout Account
 
@@ -721,7 +732,7 @@ POST /api/v2/institution/wire/payout/account/create
 | channel | string | Yes | Channel. |
 | spec | object | Yes | Account spec — fields constrained by requirements. |
 
-`spec`: `{ currency, country, rail, holderType (INDIVIDUAL|BUSINESS), accountHolderName, accountHolderAddress, bankName, routingNumber, accountNumber, accountType (CHECKING|SAVINGS), fileIds[], channelExtra[] }`.
+`spec`: `{ currency, country, rail, holderType (INDIVIDUAL|BUSINESS), accountHolderName, accountHolderAddress, bankName, routingNumber, accountNumber, accountType (CHECKING|SAVINGS), fileIds[], channelExtra[], documents[] }`. Each `documents[]` item is `{ purpose, fileId }`, where `purpose` is the requirement `key` whose `kind` is `DOCUMENT`.
 
 **Response:** a `PayoutAccount` object (see below).
 
@@ -735,7 +746,7 @@ GET /api/v2/institution/wire/payout/accounts
 
 **Response Fields:** `list[]` of `PayoutAccount`, plus `total`.
 
-`PayoutAccount`: `{ accountId, channel, status, rejectReason, accountLast4, bankName, currency, country, rail, accountHolderName, createdAt, updatedAt, editableFields[] }`, where `status` ∈ `IN_REVIEW` / `AVAILABLE` / `NEEDS_UPDATE` / `UNAVAILABLE` / `DELETED`. Use `accountId` in payout requests.
+`PayoutAccount`: `{ accountId, channel, status, rejectReason, accountLast4, bankName, currency, country, rail, accountHolderName, createdAt, updatedAt, editableFields[] }`, where `status` ∈ `IN_REVIEW` / `AVAILABLE` / `NEEDS_UPDATE` / `UNAVAILABLE` / `DELETED`, and `rejectReason` (present on `NEEDS_UPDATE` / `UNAVAILABLE`) is an object `{ code, message, retryable }`. Use `accountId` in payout requests.
 
 ### 4. Update Payout Account
 
@@ -790,6 +801,8 @@ POST /api/v2/institution/wire/payout/order/create
 }
 ```
 
+Response fields: `{ orderId, status, amount, feeAmount, finalAmount, reason }`; `reason` (`{ code, message, retryable }`) is present only when the channel returns one.
+
 > **Idempotency:** always send a unique `clientOrderId`; on timeout/no-response, re-send with the **same** `clientOrderId` (or query first via [List/Get Payout Order](#2-list-payout-orders)) — never retry with a new key.
 
 ### 2. List Payout Orders
@@ -808,7 +821,9 @@ GET /api/v2/institution/wire/payout/order
 
 **Request Parameters:** `userId` (required), `orderId` **or** `clientOrderId`, `channel` (required).
 
-`PayoutOrder`: `{ orderId, clientOrderId, channel, payoutAccountId, sourceCurrency, targetCurrency, amount, feeAmount, finalAmount, rate, status, reason, rail, createdAt, updatedAt, completedAt, refundedAt }`, where `status` (`PayoutOrderStatus`) ∈ `PENDING` / `IN_REVIEW` / `PROCESSING` / `COMPLETED` (final) / `FAILED` (final) / `RETURNED` / `REFUNDING` / `REFUNDED`. `createdAt` / `updatedAt` / `completedAt` / `refundedAt` are all millisecond Unix timestamps (`int64`); each is `0` before its event occurs (`completedAt` before the final state, `refundedAt` before a refund).
+`PayoutOrder`: `{ orderId, clientOrderId, channel, payoutAccountId, sourceCurrency, targetCurrency, amount, feeAmount, finalAmount, rate, status, reason, rail, createdAt, updatedAt, completedAt, refundedAt }`, where `status` (`PayoutOrderStatus`) ∈ `PENDING` / `IN_REVIEW` / `PROCESSING` / `COMPLETED` (final) / `FAILED` (final) / `RETURNED` / `REFUNDING` / `REFUNDED`. `reason` is an object `{ code, message, retryable }` (present only when the channel returns one, e.g. on `FAILED` / `RETURNED`); `retryable` indicates whether the same order may be retried.
+
+`createdAt` / `updatedAt` / `completedAt` / `refundedAt` are all millisecond Unix timestamps (`int64`); a lifecycle field is `0` until that event occurs (`completedAt` before the order is final, `refundedAt` before any refund).
 
 ---
 
@@ -857,6 +872,7 @@ POST /api/v2/institution/asset/withdraw
 |------------|-------------|
 | `P_PAY_OPEN_API_ACCOUNT_FROZEN` | Deposits/withdrawals frozen for this account. |
 | `P_PAY_OPEN_API_KYC_REQUIRED` | KYC not completed or insufficient level. |
+| `P_PAY_OPEN_API_REGION_RESTRICTED` | The operation is restricted in your region. |
 | `P_PAY_OPEN_API_SIGN_REJECTED` | Security signature check failed. |
 | `P_PAY_OPEN_API_OPERATION_FORBIDDEN` | Blocked after high-risk behavior; `data` contains `restrict_expired_on`, `restrict_ttl`. |
 | `P_PAY_OPEN_API_UNSUPPORTED_CURRENCY` | `currency` + `chain` combination unsupported. |
