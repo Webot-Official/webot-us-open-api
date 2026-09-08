@@ -306,7 +306,7 @@ POST /api/v2/institution/kyb/create
 { "result": true, "timestamp": 1785706000000, "data": { "status": "SUBMITTED" } }
 ```
 
-Validation (key validity + unconditional required + enum) passing returns `SUBMITTED`; otherwise `P_PAY_OPEN_API_INVALID_ARGUMENT` and nothing is stored.
+Validation (key validity + unconditional required + enum) passing returns `SUBMITTED`; otherwise `P_PAY_OPEN_API_INVALID_ARGUMENT` and nothing is stored. A `subject.country` other than `US` is rejected with `P_PAY_OPEN_API_COUNTRY_NOT_SUPPORTED_IN_REGION`; an unrecognized (non-ISO) country code is `P_PAY_OPEN_API_INVALID_ARGUMENT`.
 
 **Errors:**
 
@@ -314,6 +314,7 @@ Validation (key validity + unconditional required + enum) passing returns `SUBMI
 |------------|-------------|
 | `P_PAY_OPEN_API_KYB_ALREADY_APPROVED` | Platform KYB is already `APPROVED` and can no longer be resubmitted. |
 | `P_PAY_OPEN_API_KYB_SUBMIT_IN_PROGRESS` | A submission for this `userId` is already being processed; retry later. |
+| `P_PAY_OPEN_API_COUNTRY_NOT_SUPPORTED_IN_REGION` | `subject.country` is a valid ISO code but not `US`. This API accepts US-registered companies only. |
 
 ### 2. Get Platform KYB Status
 
