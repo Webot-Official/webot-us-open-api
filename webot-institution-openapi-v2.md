@@ -422,7 +422,7 @@ GET /api/v2/institution/wire/deposit/account
 
 ## Platform KYB Field Reference
 
-The canonical fields and documents accepted by `POST /kyb/create`. Applies to companies registered in **Hong Kong (HK)** or the **United States (US)**.
+The canonical fields and documents accepted by `POST /kyb/create`. Applies to companies registered in the **United States (US)**.
 
 ### Required markers
 
@@ -432,7 +432,7 @@ The canonical fields and documents accepted by `POST /kyb/create`. Applies to co
 | **C** | Conditional — required when the trigger in the description holds. |
 | **O** | Optional — providing it speeds up review; omitting it does not block. |
 
-> The `HK` / `US` columns give the marker per jurisdiction (`subject.country`). `N/A` means the field is ignored for that jurisdiction. Files are submitted as `documents[]` with the document's canonical key as `purpose` and a `fileId`.
+> The `Req` column gives the required marker. Files are submitted as `documents[]` with the document's canonical key as `purpose` and a `fileId`.
 
 ### Submission structure
 
@@ -448,91 +448,85 @@ The canonical fields and documents accepted by `POST /kyb/create`. Applies to co
 
 ### 1. Subject fields (`subject.*`)
 
-| Key | HK | US | Rules |
-|-----|:--:|:--:|-------|
-| `subject.country` | M | M | Registration jurisdiction. `HK` / `US`. Drives all validation. |
-| `subject.legalNameEn` | M | M | Legal English name, ≤200. Must match the registration document exactly (incl. `Limited`/`Ltd.`/`Inc.` suffix). Non-Latin names need an official English translation. |
-| `subject.legalNameCn` | O | N/A | Legal Chinese name, ≤100. HK companies registered in Chinese should provide it; N/A for US. |
-| `subject.registrationNo` | M | M | HK: Business Registration No.; US: IRS EIN (format `XX-XXXXXXX`). ≤32. |
-| `subject.registrationNoType` | M | M | `BRN` (HK) / `EIN` (US). Must match `subject.country`. |
-| `subject.businessType` | M | M | Org form (enum §[Enums](#5-enums)). Also determines which US charter document is required (see §[Documents](#2-subject-documents-subject)). |
-| `subject.incorporationDate` | M | M | `yyyy-MM-dd`. Companies incorporated < 6 months may enter enhanced due diligence. |
-| `subject.incorporationState` | N/A | M | US state code (e.g. `DE`, `CA`). US only. |
-| `subject.email` | M | M | Official business email, ≤128. A free-email domain (gmail/qq/163…) triggers manual review. |
-| `subject.phone.countryCode` | C | C | Intl. dialing code without `+` (e.g. `852`, `1`). Required if phone is provided. |
-| `subject.phone.number` | C | C | Required if phone is provided. ≤20. |
-| `subject.website` | O | O | Must include scheme (`https://`), ≤256. Recommended for e-commerce/platform businesses. |
-| `subject.notifyUrl` | O | O | Review-result callback URL. |
-| `subject.registeredAddress.addressLine1` | M | M | Street + number, ≤200. **No P.O. Box**; US must include a street number. |
-| `subject.registeredAddress.addressLine2` | O | O | Room/floor/unit, ≤200. |
-| `subject.registeredAddress.city` | M | M | ≤100. |
-| `subject.registeredAddress.state` | O | M | 2-letter state code (e.g. `NY`). US mandatory; HK may omit. |
-| `subject.registeredAddress.postalCode` | O | M | US mandatory; HK has no postal codes. |
-| `subject.registeredAddress.countryCode` | M | M | ISO 3166-1 alpha-2. |
-| `subject.operatingAddressSameAsRegistered` | M | M | `true` / `false`. When `true`, omit `operatingAddress`. |
-| `subject.operatingAddress.*` | C | C | Same sub-fields as `registeredAddress`. Required when `operatingAddressSameAsRegistered = false`. |
-| `subject.businessDescription` | M | M | Concrete description of products/services, ≤500. Vague terms ("trading", "consulting") are rejected for supplement. |
-| `subject.accountPurpose.cryptoTrading` | O | O | `true`/`false`. At least one `accountPurpose.*` should be `true`. |
-| `subject.accountPurpose.fiatDeposit` | O | O | `true`/`false`. |
-| `subject.accountPurpose.fiatWithdrawal` | O | O | `true`/`false`. |
-| `subject.accountPurpose.cardIssuing` | O | O | `true`/`false`. |
-| `subject.accountPurpose.crossBorderPayment` | O | O | `true`/`false`. |
-| `subject.accountPurpose.fxConversion` | O | O | `true`/`false`. |
-| `subject.accountPurpose.payroll` | O | O | `true`/`false`. |
-| `subject.accountPurpose.other` | O | O | `true`/`false`; describe in `businessDescription`. |
-| `subject.monthlyDepositLimit.amount` | M | M | Decimal string, ≤2 decimals. Recommended in USD. |
-| `subject.monthlyDepositLimit.currency` | M | M | ISO 4217. |
-| `subject.monthlyWithdrawalLimit.amount` | M | M | Decimal string, ≤2 decimals. |
-| `subject.monthlyWithdrawalLimit.currency` | M | M | ISO 4217. |
-| `subject.pepDeclaration.hasPepRelation` | M | M | `true`/`false`. Whether any director/shareholder/UBO (or close relation) is/was a politically exposed person. |
-| `subject.pepDeclaration.description` | C | C | Required when `hasPepRelation = true`, ≤500. Names, positions, tenure. |
-| `subject.ownershipDeclaration.hasShareholderOver25Percent` | C | C | `true`/`false`. Required when no document evidencing the ownership structure is submitted. When `true`, `representatives[]` must include at least one person with `role.responsibility = ULTIMATE_BENEFICIAL_OWNER`. |
-| `subject.ownershipDeclaration.hasNomineeShareholder` | O | O | `true`/`false`. If `true`, disclose the ultimate beneficial owner. |
-| `subject.highRiskCountryExposure.involved` | O | O | `true`/`false`. Whether business touches FATF high-risk jurisdictions. |
-| `subject.highRiskCountryExposure.description` | C | C | Required when `involved = true`, ≤500. |
-| `subject.termsAgreed` | M | M | Must be `true`, else the application is rejected. |
-| `subject.dataUsageAgreed` | M | M | Must be `true` (authorizes third-party data verification). |
-| `subject.serviceAgreementType` | M | M | `FULL` / `RECIPIENT` (enum §[Enums](#5-enums)). |
-| `subject.signerPersonRefId` | M | M | Must equal the `representativeRef` of the person designated as the authorized signer. |
-| `subject.agreedAt` | M | M | ISO 8601 (e.g. `2026-08-25T10:12:33Z`). |
-| `subject.deviceData.ipAddress` | M | M | Signer's public IP at consent time (IPv6-compatible), ≤45. |
-| `subject.deviceData.userAgent` | M | M | Signer's User-Agent, ≤512. |
+| Key | Req | Rules |
+|-----|:--:|-------|
+| `subject.country` | M | Registration jurisdiction. `US` only. Drives all validation. |
+| `subject.legalNameEn` | M | Legal English name, ≤200. Must match the registration document exactly (incl. `Limited`/`Ltd.`/`Inc.` suffix). Non-Latin names need an official English translation. |
+| `subject.registrationNo` | M | IRS EIN (format `XX-XXXXXXX`). ≤32. |
+| `subject.registrationNoType` | M | `EIN`. |
+| `subject.businessType` | M | Org form (enum §[Enums](#5-enums)). Also determines which charter document is required (see §[Documents](#2-subject-documents-subject)). |
+| `subject.incorporationDate` | M | `yyyy-MM-dd`. Companies incorporated < 6 months may enter enhanced due diligence. |
+| `subject.incorporationState` | M | US state code (e.g. `DE`, `CA`). |
+| `subject.email` | M | Official business email, ≤128. A free-email domain (gmail/qq/163…) triggers manual review. |
+| `subject.phone.countryCode` | C | Intl. dialing code without `+` (e.g. `1`). Required if phone is provided. |
+| `subject.phone.number` | C | Required if phone is provided. ≤20. |
+| `subject.website` | O | Must include scheme (`https://`), ≤256. Recommended for e-commerce/platform businesses. |
+| `subject.registeredAddress.addressLine1` | M | Street + number, ≤200. **No P.O. Box**; must include a street number. |
+| `subject.registeredAddress.addressLine2` | O | Room/floor/unit, ≤200. |
+| `subject.registeredAddress.city` | M | ≤100. |
+| `subject.registeredAddress.state` | M | 2-letter state code (e.g. `NY`). |
+| `subject.registeredAddress.postalCode` | M | ZIP code. |
+| `subject.registeredAddress.countryCode` | M | ISO 3166-1 alpha-2 (`US`). |
+| `subject.operatingAddressSameAsRegistered` | M | `true` / `false`. When `true`, omit `operatingAddress`. |
+| `subject.operatingAddress.*` | C | Same sub-fields as `registeredAddress`. Required when `operatingAddressSameAsRegistered = false`. |
+| `subject.businessDescription` | M | Concrete description of products/services, ≤500. Vague terms ("trading", "consulting") are rejected for supplement. |
+| `subject.accountPurpose.cryptoTrading` | O | `true`/`false`. At least one `accountPurpose.*` should be `true`. |
+| `subject.accountPurpose.fiatDeposit` | O | `true`/`false`. |
+| `subject.accountPurpose.fiatWithdrawal` | O | `true`/`false`. |
+| `subject.accountPurpose.cardIssuing` | O | `true`/`false`. |
+| `subject.accountPurpose.crossBorderPayment` | O | `true`/`false`. |
+| `subject.accountPurpose.fxConversion` | O | `true`/`false`. |
+| `subject.accountPurpose.payroll` | O | `true`/`false`. |
+| `subject.accountPurpose.other` | O | `true`/`false`; describe in `businessDescription`. |
+| `subject.monthlyDepositLimit.amount` | M | Decimal string, ≤2 decimals. Recommended in USD. |
+| `subject.monthlyDepositLimit.currency` | M | ISO 4217. |
+| `subject.monthlyWithdrawalLimit.amount` | M | Decimal string, ≤2 decimals. |
+| `subject.monthlyWithdrawalLimit.currency` | M | ISO 4217. |
+| `subject.pepDeclaration.hasPepRelation` | M | `true`/`false`. Whether any director/shareholder/UBO (or close relation) is/was a politically exposed person. |
+| `subject.pepDeclaration.description` | C | Required when `hasPepRelation = true`, ≤500. Names, positions, tenure. |
+| `subject.ownershipDeclaration.hasShareholderOver25Percent` | C | `true`/`false`. Required when no document evidencing the ownership structure is submitted. When `true`, `representatives[]` must include at least one person with `role.responsibility = ULTIMATE_BENEFICIAL_OWNER`. |
+| `subject.ownershipDeclaration.hasNomineeShareholder` | O | `true`/`false`. If `true`, disclose the ultimate beneficial owner. |
+| `subject.highRiskCountryExposure.involved` | O | `true`/`false`. Whether business touches FATF high-risk jurisdictions. |
+| `subject.highRiskCountryExposure.description` | C | Required when `involved = true`, ≤500. |
+| `subject.termsAgreed` | M | Must be `true`, else the application is rejected. |
+| `subject.dataUsageAgreed` | M | Must be `true` (authorizes third-party data verification). |
+| `subject.serviceAgreementType` | M | `FULL` / `RECIPIENT` (enum §[Enums](#5-enums)). |
+| `subject.signerPersonRefId` | M | Must equal the `representativeRef` of the person designated as the authorized signer. |
+| `subject.agreedAt` | M | ISO 8601 (e.g. `2026-08-25T10:12:33Z`). |
+| `subject.deviceData.ipAddress` | M | Signer's public IP at consent time (IPv6-compatible), ≤45. |
+| `subject.deviceData.userAgent` | M | Signer's User-Agent, ≤512. |
 
 ### 2. Subject documents (`subject.*`)
 
-Value is a `fileId`. Required matrix by jurisdiction:
+Value is a `fileId`. Required matrix:
 
-| Key | HK | US | Notes |
-|-----|:--:|:--:|-------|
-| `subject.businessRegistrationCertificate` | M | N/A | Business Registration Certificate (BR). |
-| `subject.businessFormation` | M | M | Certificate of Incorporation (HK CI / US Certificate of Incorporation, issued by the Secretary of State). |
-| `subject.incorporationFormNnc1` | C | N/A | Incorporation Form NNC1. **Note 1**. |
-| `subject.annualReturnNar1` | C | N/A | Annual Return NAR1. **Note 1**. |
-| `subject.einConfirmationLetter` | N/A | M | IRS EIN confirmation letter (CP575 / 147C). |
-| `subject.bylaws` | N/A | C | Charter — when `businessType` is a corporation subtype (`B_CORPORATION` / `C_CORPORATION` / `CLOSE_CORPORATION` / `S_CORPORATION`). **Note 4**. |
-| `subject.operatingAgreement` | N/A | C | Charter — when `businessType = LLC`, or the merged fallback when `businessType` is not provided. **Note 4**. |
-| `subject.partnershipAgreement` | N/A | C | Charter — when `businessType = LLP` / `LP` / `GENERAL_PARTNERSHIP`. **Note 4**. |
-| `subject.registerOfDirectors` | C | C | Register of directors. **Note 2**. |
-| `subject.ownershipProof` | C | C | Register of shareholders. **Note 2**. |
-| `subject.shareholdingStructureChart` | C | C | Shareholding structure chart. **Note 2, Note 3**. |
-| `subject.certificateOfGoodStanding` | N/A | O | Certificate of good standing. |
-| `subject.financialStatements` | O | O | Financial statements. |
-| `subject.authorizationLetter` | O | O | Authorization letter. |
-| `subject.sourceOfFundsProof` | M | M | Source-of-funds proof — see **Note 5**. |
-| `subject.supportiveOther` | O | O | Other supporting materials. |
-| `subject.bankStatement` | O | O | Address proof: bank statement. |
-| `subject.utilityBill` | O | O | Address proof: utility bill. |
-| `subject.leaseAgreement` | O | O | Address proof: lease agreement. |
-| `subject.taxNotice` | O | O | Address proof: tax authority notice. |
-| `subject.addressProofOther` | O | O | Address proof: other. |
+| Key | Req | Notes |
+|-----|:--:|-------|
+| `subject.businessFormation` | M | Certificate of Incorporation (issued by the Secretary of State). |
+| `subject.einConfirmationLetter` | M | IRS EIN confirmation letter (CP575 / 147C). |
+| `subject.bylaws` | C | Charter — when `businessType` is a corporation subtype (`B_CORPORATION` / `C_CORPORATION` / `CLOSE_CORPORATION` / `S_CORPORATION`). **Note 3**. |
+| `subject.operatingAgreement` | C | Charter — when `businessType = LLC`, or the merged fallback when `businessType` is not provided. **Note 3**. |
+| `subject.partnershipAgreement` | C | Charter — when `businessType = LLP` / `LP` / `GENERAL_PARTNERSHIP`. **Note 3**. |
+| `subject.registerOfDirectors` | C | Register of directors. **Note 1**. |
+| `subject.ownershipProof` | C | Register of shareholders. **Note 1**. |
+| `subject.shareholdingStructureChart` | C | Shareholding structure chart. **Note 1, Note 2**. |
+| `subject.certificateOfGoodStanding` | O | Certificate of good standing. |
+| `subject.financialStatements` | O | Financial statements. |
+| `subject.authorizationLetter` | O | Authorization letter. |
+| `subject.sourceOfFundsProof` | M | Source-of-funds proof — see **Note 4**. |
+| `subject.supportiveOther` | O | Other supporting materials. |
+| `subject.bankStatement` | O | Address proof: bank statement. |
+| `subject.utilityBill` | O | Address proof: utility bill. |
+| `subject.leaseAgreement` | O | Address proof: lease agreement. |
+| `subject.taxNotice` | O | Address proof: tax authority notice. |
+| `subject.addressProofOther` | O | Address proof: other. |
 
 **Conditional rules:**
 
-- **Note 1 (HK charter docs):** submit at least one of `incorporationFormNnc1` / `annualReturnNar1`. If incorporated over a year, `annualReturnNar1` (latest directors/shareholders/address) is preferred.
-- **Note 2 (ownership & directors):** submit at least one of `registerOfDirectors` / `ownershipProof` / `shareholdingStructureChart` that fully shows directors and ownership. If already evidenced by NNC1/NAR1 (HK) or the charter document (US), it may be omitted, and `subject.ownershipDeclaration.*` may then also be omitted.
-- **Note 3:** if none of the above shows the full ownership chain (e.g. multi-tier holding), `shareholdingStructureChart` will be requested via supplement.
-- **Note 4 (US charter):** submit the charter document matching `businessType` — corporation subtypes (`B_CORPORATION` / `C_CORPORATION` / `CLOSE_CORPORATION` / `S_CORPORATION`) → `bylaws`; `LLC` → `operatingAgreement`; `LLP` / `LP` / `GENERAL_PARTNERSHIP` → `partnershipAgreement`. Only one, matching the true org form. (`operatingAgreement` also serves as the fallback when the specific charter type is unclear.)
-- **Note 5 (source of funds):** mandatory. Acceptable forms include recent 6-month corporate bank statements, audited financials, key trade contracts + invoices, capital-contribution proof, or investment agreements + receipts. Multiple entries allowed (at least one). An account-balance screenshot alone is insufficient — the funds' formation chain must be shown.
+- **Note 1 (ownership & directors):** submit at least one of `registerOfDirectors` / `ownershipProof` / `shareholdingStructureChart` that fully shows directors and ownership. If already evidenced by the charter document, it may be omitted, and `subject.ownershipDeclaration.*` may then also be omitted.
+- **Note 2:** if none of the above shows the full ownership chain (e.g. multi-tier holding), `shareholdingStructureChart` will be requested via supplement.
+- **Note 3 (charter):** submit the charter document matching `businessType` — corporation subtypes (`B_CORPORATION` / `C_CORPORATION` / `CLOSE_CORPORATION` / `S_CORPORATION`) → `bylaws`; `LLC` → `operatingAgreement`; `LLP` / `LP` / `GENERAL_PARTNERSHIP` → `partnershipAgreement`. Only one, matching the true org form. (`operatingAgreement` also serves as the fallback when the specific charter type is unclear.)
+- **Note 4 (source of funds):** mandatory. Acceptable forms include recent 6-month corporate bank statements, audited financials, key trade contracts + invoices, capital-contribution proof, or investment agreements + receipts. Multiple entries allowed (at least one). An account-balance screenshot alone is insufficient — the funds' formation chain must be shown.
 
 **Address proof:** required when `operatingAddressSameAsRegistered = false`, or when the submitted registration documents do not state an address. Provide via the `subject.bankStatement` / `utilityBill` / `leaseAgreement` / `taxNotice` / `addressProofOther` keys; issued within the last 3 months.
 
@@ -540,34 +534,33 @@ Value is a `fileId`. Required matrix by jurisdiction:
 
 One set per person, distinguished by the `representativeRef` property (see [Submission structure](#submission-structure)). Note: the per-person id is the `representativeRef` property of each `representatives[]` entry, **not** a `fields[]` key.
 
-| Key | HK | US | Rules |
-|-----|:--:|:--:|-------|
-| `representativeRef` *(property — not a `fields[]` key)* | M | M | Stable per-person id in your system; keep unchanged across supplements. Supplied as the `representativeRef` property of each `representatives[]` entry (see [Submission structure](#submission-structure)) — do **not** place it inside `fields`. `subject.signerPersonRefId` references this value. |
-| `representative.role.responsibility` | O | O | The person's responsibility relative to the company — **single value** from the enum (§[Enums](#5-enums)): `ULTIMATE_BENEFICIAL_OWNER` / `AUTHORIZED_REPRESENTATIVE` / `DIRECTOR`. |
-| `representative.firstName` | M | M | English first name, ≤100. Must match the ID exactly. |
-| `representative.middleName` | O | O | English middle name, ≤100. Provide if present on the ID. |
-| `representative.lastName` | M | M | English last name, ≤100. Must match the ID exactly. |
-| `representative.fullNameCn` | O | N/A | Chinese name, ≤50. HK: provide if the ID carries a Chinese name. |
-| `representative.jobTitle` | M | M | Title (e.g. Director, CEO), ≤100. |
-| `representative.birthDate` | M | M | `yyyy-MM-dd`. Must match the ID; must be ≥ 18 years old. |
-| `representative.nationality` | M | M | ISO 3166-1 alpha-2. |
-| `representative.ownershipPercentage` | C | C | Required when `role.responsibility = ULTIMATE_BENEFICIAL_OWNER`. `0.01`–`100`, ≤2 decimals; look-through actual percentage. |
-| `representative.residentialAddress.addressLine1` | M | M | Actual residential address (not temporary), ≤200. |
-| `representative.residentialAddress.addressLine2` | O | O | ≤200. |
-| `representative.residentialAddress.city` | M | M | ≤100. |
-| `representative.residentialAddress.state` | O | M | US mandatory (2-letter state code). |
-| `representative.residentialAddress.postalCode` | O | M | US mandatory. |
-| `representative.residentialAddress.countryCode` | M | M | ISO 3166-1 alpha-2. |
-| `representative.email` | M | M | Required for every person, ≤128 (used for verification-code delivery). |
-| `representative.phone.countryCode` | O | O | Recommended for the primary contact person. |
-| `representative.phone.number` | O | O | Recommended for the primary contact person. |
-| `representative.identityDocument.ssn` | N/A | M | US: personal tax id (SSN/ITIN) for every person; N/A for HK. |
-| `representative.identityDocument.idType` | M | M | Enum §[Enums](#5-enums). |
-| `representative.identityDocument.idNumber` | M | M | ≤64. |
-| `representative.identityDocument.issuingCountry` | M | M | ISO 3166-1 alpha-2. |
-| `representative.identityDocument.issueDate` | O | O | `yyyy-MM-dd`. |
-| `representative.identityDocument.expiryDate` | M | M | `yyyy-MM-dd`. Long-validity IDs use `9999-12-31`. An already-expired ID fails validation. |
-| `representative.ownershipAttestedAt` | C | C | ISO 8601. Required when `subject.ownershipDeclaration.hasShareholderOver25Percent` has a value. |
+| Key | Req | Rules |
+|-----|:--:|-------|
+| `representativeRef` *(property — not a `fields[]` key)* | M | Stable per-person id in your system; keep unchanged across supplements. Supplied as the `representativeRef` property of each `representatives[]` entry (see [Submission structure](#submission-structure)) — do **not** place it inside `fields`. `subject.signerPersonRefId` references this value. |
+| `representative.role.responsibility` | O | The person's responsibility relative to the company — **single value** from the enum (§[Enums](#5-enums)): `ULTIMATE_BENEFICIAL_OWNER` / `AUTHORIZED_REPRESENTATIVE` / `DIRECTOR`. |
+| `representative.firstName` | M | English first name, ≤100. Must match the ID exactly. |
+| `representative.middleName` | O | English middle name, ≤100. Provide if present on the ID. |
+| `representative.lastName` | M | English last name, ≤100. Must match the ID exactly. |
+| `representative.jobTitle` | M | Title (e.g. Director, CEO), ≤100. |
+| `representative.birthDate` | M | `yyyy-MM-dd`. Must match the ID; must be ≥ 18 years old. |
+| `representative.nationality` | M | ISO 3166-1 alpha-2. |
+| `representative.ownershipPercentage` | C | Required when `role.responsibility = ULTIMATE_BENEFICIAL_OWNER`. `0.01`–`100`, ≤2 decimals; look-through actual percentage. |
+| `representative.residentialAddress.addressLine1` | M | Actual residential address (not temporary), ≤200. |
+| `representative.residentialAddress.addressLine2` | O | ≤200. |
+| `representative.residentialAddress.city` | M | ≤100. |
+| `representative.residentialAddress.state` | M | 2-letter state code. |
+| `representative.residentialAddress.postalCode` | M | ZIP code. |
+| `representative.residentialAddress.countryCode` | M | ISO 3166-1 alpha-2. |
+| `representative.email` | M | Required for every person, ≤128 (used for verification-code delivery). |
+| `representative.phone.countryCode` | O | Recommended for the primary contact person. |
+| `representative.phone.number` | O | Recommended for the primary contact person. |
+| `representative.identityDocument.ssn` | M | Personal tax id (SSN/ITIN) for every person. |
+| `representative.identityDocument.idType` | M | Enum §[Enums](#5-enums). |
+| `representative.identityDocument.idNumber` | M | ≤64. |
+| `representative.identityDocument.issuingCountry` | M | ISO 3166-1 alpha-2. |
+| `representative.identityDocument.issueDate` | O | `yyyy-MM-dd`. |
+| `representative.identityDocument.expiryDate` | M | `yyyy-MM-dd`. Long-validity IDs use `9999-12-31`. An already-expired ID fails validation. |
+| `representative.ownershipAttestedAt` | C | ISO 8601. Required when `subject.ownershipDeclaration.hasShareholderOver25Percent` has a value. |
 
 ### 4. Representative documents (`representative.*`)
 
@@ -590,9 +583,9 @@ Value is a `fileId`. ID-document files are routed by `identityDocument.idType` (
 
 Values below are the exact accepted values. The subset actually allowed for a given channel/country is returned by the requirements flow — do not assume every value is accepted everywhere.
 
-**`subject.country`**: `HK`, `US`.
+**`subject.country`**: `US`.
 
-**`subject.registrationNoType`**: `BRN` (HK), `EIN` (US).
+**`subject.registrationNoType`**: `EIN`.
 
 **`subject.businessType`** (single list — not split by jurisdiction):
 `B_CORPORATION`, `C_CORPORATION`, `CLOSE_CORPORATION`, `S_CORPORATION`, `LLC`, `LLP`, `LP`, `GENERAL_PARTNERSHIP`, `SOLE_PROPRIETOR`, `TRUST`, `COOPERATIVE`, `NONPROFIT_CORPORATION`, `OTHER`.
@@ -622,15 +615,15 @@ Values below are the exact accepted values. The subset actually allowed for a gi
 
 Submission is rejected with `P_PAY_OPEN_API_INVALID_ARGUMENT` when any of the following fails:
 
-- **Registration type matches jurisdiction:** `HK` ⇒ `registrationNoType = BRN`; `US` ⇒ `EIN`.
-- **US state present:** `US` requires `subject.incorporationState`.
+- **Registration type:** `registrationNoType = EIN`.
+- **Incorporation state present:** `subject.incorporationState` is required.
 - **Operating address present** when `operatingAddressSameAsRegistered = false`.
 - **Every representative has an `email`.**
 - **Beneficial owner ownership:** when `subject.ownershipDeclaration.hasShareholderOver25Percent = true` (or an ownership document shows a ≥25% holder), at least one representative must have `role.responsibility = ULTIMATE_BENEFICIAL_OWNER`. Each such person's `ownershipPercentage` must be in `(0, 100]`, and the sum must not exceed 100.
 - **ID not expired**; ID **back** file present for card-style IDs and `DRIVERS_LICENSE`.
 - **Age ≥ 18** (from `birthDate`).
-- **US charter document matches `businessType`** (see Note 4).
-- **US personal tax id present** (`representative.identityDocument.ssn`) for every representative.
+- **Charter document matches `businessType`** (see Note 3).
+- **Personal tax id present** (`representative.identityDocument.ssn`) for every representative.
 - **Required company documents present** per the matrix; source-of-funds proof present; ownership information resolvable (either an ownership document or `subject.ownershipDeclaration.*`).
 - **Consents accepted:** `termsAgreed` and `dataUsageAgreed` are `true`.
 
