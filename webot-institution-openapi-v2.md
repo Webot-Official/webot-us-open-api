@@ -373,24 +373,24 @@ GET /api/v2/institution/wire/deposit/account/requirements
 
 Platform KYB information is reused automatically. Bridge may still request the following channel-specific information when it is not available from platform KYB. Existing company formation documents and representative identity documents are also reused when available.
 
-All values in `subject.fields[]` and `representatives[].fields[]` are strings. For checkbox fields submit `"true"` or `"false"`; for multi-value fields submit a JSON-array string such as `"[\"522320\"]"`. The suggested controls below are presentation guidance for building a form.
+All values in `subject.fields[]` and `representatives[].fields[]` are strings. For checkbox fields submit `"true"` or `"false"`; for multi-value fields submit a JSON-array string such as `"[\"522320\"]"`. The `Req` column uses `M` (mandatory), `C` (conditional), and `O` (optional). The suggested controls below are presentation guidance for building a form.
 
 | Key | Req | Suggested control | Rules and description |
 |-------|------|-------------------|-----------------------|
-| `subject.isDao` | REQUIRED | Checkbox | Whether the business is a decentralized autonomous organization. Values: `true`, `false`. |
-| `subject.primaryAccountPurpose` | OPTIONAL | Single select | Primary purpose for using the account. Use one value from the enum below. |
-| `subject.accountPurposeOther` | CONDITIONAL | Text input | Required when `subject.primaryAccountPurpose = OTHER`; describe the other account purpose. |
-| `subject.sourceOfFunds` | OPTIONAL | Single select | Main source of the business funds. Use one value from the enum below. |
-| `subject.sourceOfFundsDescription` | OPTIONAL | Text area | Free-text details about the source of funds. |
-| `subject.naicsCodes[]` | OPTIONAL | Multi-value input | One or more NAICS 2022 industry codes encoded as a JSON-array string, for example `"[\"522320\"]"`. |
-| `subject.customerTypesServed` | OPTIONAL | Single select | Types of customers served by the business. Use one value from the enum below. |
-| `subject.highRiskActivities[]` | OPTIONAL | Multi-select | High-risk activities encoded as a JSON-array string. `NONE_OF_THE_ABOVE` cannot be combined with another value. |
-| `subject.highRiskActivitiesExplanation` | OPTIONAL | Text area | Free-text details about the selected high-risk activities. |
-| `representative.taxId.type` | REQUIRED | Single select | Personal tax identifier type: `SSN` or `ITIN`. |
-| `representative.taxId.number` | REQUIRED | Text input | Personal tax identifier corresponding to `representative.taxId.type`. |
-| `representative.role.beneficialOwner` | REQUIRED | Checkbox | Whether this representative is a beneficial owner. Values: `true`, `false`. |
-| `representative.role.controllingPerson` | REQUIRED | Checkbox | Whether this representative is a controlling person. Values: `true`, `false`. |
-| `representative.role.authorizedSignatory` | REQUIRED | Checkbox | Whether this representative is authorized to sign for the business. Values: `true`, `false`. A person may have more than one role. |
+| `subject.isDao` | M | Checkbox | Whether the business is a decentralized autonomous organization. Values: `true`, `false`. |
+| `subject.primaryAccountPurpose` | O | Single select | Primary purpose for using the account. Use one value from the enum below. |
+| `subject.accountPurposeOther` | C | Text input | Required when `subject.primaryAccountPurpose = OTHER`; describe the other account purpose. |
+| `subject.sourceOfFunds` | O | Single select | Main source of the business funds. Use one value from the enum below. |
+| `subject.sourceOfFundsDescription` | O | Text area | Free-text details about the source of funds. |
+| `subject.naicsCodes[]` | O | Multi-value input | One or more NAICS 2022 industry codes encoded as a JSON-array string, for example `"[\"522320\"]"`. |
+| `subject.customerTypesServed` | O | Single select | Types of customers served by the business. Use one value from the enum below. |
+| `subject.highRiskActivities[]` | O | Multi-select | High-risk activities encoded as a JSON-array string. `NONE_OF_THE_ABOVE` cannot be combined with another value. |
+| `subject.highRiskActivitiesExplanation` | O | Text area | Free-text details about the selected high-risk activities. |
+| `representative.taxId.type` | M | Single select | Personal tax identifier type: `SSN` or `ITIN`. |
+| `representative.taxId.number` | M | Text input | Personal tax identifier corresponding to `representative.taxId.type`. |
+| `representative.role.beneficialOwner` | M | Checkbox | Whether this representative is a beneficial owner. Values: `true`, `false`. |
+| `representative.role.controllingPerson` | M | Checkbox | Whether this representative is a controlling person. Values: `true`, `false`. |
+| `representative.role.authorizedSignatory` | M | Checkbox | Whether this representative is authorized to sign for the business. Values: `true`, `false`. A person may have more than one role. |
 
 **Bridge supplemental enum values:**
 
