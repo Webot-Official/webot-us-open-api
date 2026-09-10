@@ -371,14 +371,36 @@ GET /api/v2/institution/wire/deposit/account/requirements
 
 #### Bridge supplemental information
 
-Platform KYB information is reused automatically. Bridge may still request the following channel-specific information when it is not available from platform KYB; the actual items and their required modes are always determined by this endpoint's response.
+Platform KYB information is reused automatically. Bridge may still request the following channel-specific information when it is not available from platform KYB. Existing company formation documents and representative identity documents are also reused when available.
 
-| Scope | Fields that may be requested |
-|-------|------------------------------|
-| Subject | `subject.isDao`, `subject.primaryAccountPurpose`, `subject.accountPurposeOther`, `subject.sourceOfFunds`, `subject.sourceOfFundsDescription`, `subject.naicsCodes[]`, `subject.customerTypesServed`, `subject.highRiskActivities[]`, `subject.highRiskActivitiesExplanation` |
-| Representative | `representative.taxId.type`, `representative.taxId.number`, `representative.role.beneficialOwner`, `representative.role.controllingPerson`, `representative.role.authorizedSignatory` |
+All values in `subject.fields[]` and `representatives[].fields[]` are strings. For checkbox fields submit `"true"` or `"false"`; for multi-value fields submit a JSON-array string such as `"[\"522320\"]"`. The suggested controls below are presentation guidance for building a form.
 
-Existing platform KYB fields and documents, including company formation documents and representative identity documents, are omitted from the response when they can be reused. Do not hard-code the table above as a fixed required list.
+| Key | Req | Suggested control | Rules and description |
+|-------|------|-------------------|-----------------------|
+| `subject.isDao` | Yes | Checkbox | Whether the business is a decentralized autonomous organization. Values: `true`, `false`. |
+| `subject.primaryAccountPurpose` | No | Single select | Primary purpose for using the account. Use one value from the enum below. |
+| `subject.accountPurposeOther` | Cond. | Text input | Required when `subject.primaryAccountPurpose = OTHER`; describe the other account purpose. |
+| `subject.sourceOfFunds` | No | Single select | Main source of the business funds. Use one value from the enum below. |
+| `subject.sourceOfFundsDescription` | No | Text area | Free-text details about the source of funds. |
+| `subject.naicsCodes[]` | No | Multi-value input | One or more NAICS 2022 industry codes encoded as a JSON-array string, for example `"[\"522320\"]"`. |
+| `subject.customerTypesServed` | No | Single select | Types of customers served by the business. Use one value from the enum below. |
+| `subject.highRiskActivities[]` | No | Multi-select | High-risk activities encoded as a JSON-array string. `NONE_OF_THE_ABOVE` cannot be combined with another value. |
+| `subject.highRiskActivitiesExplanation` | No | Text area | Free-text details about the selected high-risk activities. |
+| `representative.taxId.type` | Yes | Single select | Personal tax identifier type: `SSN` or `ITIN`. |
+| `representative.taxId.number` | Yes | Text input | Personal tax identifier corresponding to `representative.taxId.type`. |
+| `representative.role.beneficialOwner` | Yes | Checkbox | Whether this representative is a beneficial owner. Values: `true`, `false`. |
+| `representative.role.controllingPerson` | Yes | Checkbox | Whether this representative is a controlling person. Values: `true`, `false`. |
+| `representative.role.authorizedSignatory` | Yes | Checkbox | Whether this representative is authorized to sign for the business. Values: `true`, `false`. A person may have more than one role. |
+
+**Bridge supplemental enum values:**
+
+- `subject.primaryAccountPurpose`: `CHARITABLE_DONATIONS`, `ECOMMERCE_RETAIL_PAYMENTS`, `INVESTMENT_PURPOSES`, `OTHER`, `PAYMENTS_TO_FRIENDS_OR_FAMILY_ABROAD`, `PAYROLL`, `PERSONAL_OR_LIVING_EXPENSES`, `PROTECT_WEALTH`, `PURCHASE_GOODS_AND_SERVICES`, `RECEIVE_PAYMENTS_FOR_GOODS_AND_SERVICES`, `TAX_OPTIMIZATION`, `THIRD_PARTY_MONEY_TRANSMISSION`, `TREASURY_MANAGEMENT`.
+- `subject.sourceOfFunds`: `BUSINESS_LOANS`, `GRANTS`, `INTER_COMPANY_FUNDS`, `INVESTMENT_PROCEEDS`, `LEGAL_SETTLEMENT`, `OWNERS_CAPITAL`, `PENSION_RETIREMENT`, `SALE_OF_ASSETS`, `SALES_OF_GOODS_AND_SERVICES`, `THIRD_PARTY_FUNDS`, `TREASURY_RESERVES`.
+- `subject.customerTypesServed`: `INDIVIDUALS`, `BUSINESSES`, `BOTH`.
+- `subject.highRiskActivities[]`: `ADULT_ENTERTAINMENT`, `GAMBLING`, `HOLD_CLIENT_FUNDS`, `INVESTMENT_SERVICES`, `LENDING_BANKING`, `MARIJUANA_OR_RELATED_SERVICES`, `MONEY_SERVICES`, `NICOTINE_TOBACCO_OR_RELATED_SERVICES`, `OPERATE_FOREIGN_EXCHANGE_VIRTUAL_CURRENCIES_BROKERAGE_OTC`, `PHARMACEUTICALS`, `PRECIOUS_METALS_PRECIOUS_STONES_JEWELRY`, `SAFE_DEPOSIT_BOX_RENTALS`, `THIRD_PARTY_PAYMENT_PROCESSING`, `WEAPONS_FIREARMS_AND_EXPLOSIVES`, `NONE_OF_THE_ABOVE`.
+- `representative.taxId.type`: `SSN`, `ITIN`.
+
+The table is a complete reference for the Bridge-only supplemental fields currently supported by this API. The requirements response remains authoritative for which fields must be rendered and submitted for a particular user; do not submit every field unconditionally.
 
 ### 4. Onboard a Deposit Account (Channel KYB)
 
