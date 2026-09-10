@@ -375,7 +375,7 @@ Platform KYB information is reused automatically. Bridge may still request the f
 
 All values in `subject.fields[]` and `representatives[].fields[]` are strings. For checkbox fields submit `"true"` or `"false"`; for multi-value fields submit a JSON-array string such as `"[\"522320\"]"`. The suggested controls below are presentation guidance for building a form.
 
-| Field | Mode | Suggested control | Rules and description |
+| Key | Req | Suggested control | Rules and description |
 |-------|------|-------------------|-----------------------|
 | `subject.isDao` | REQUIRED | Checkbox | Whether the business is a decentralized autonomous organization. Values: `true`, `false`. |
 | `subject.primaryAccountPurpose` | OPTIONAL | Single select | Primary purpose for using the account. Use one value from the enum below. |
