@@ -369,6 +369,17 @@ GET /api/v2/institution/wire/deposit/account/requirements
 
 `Requirement`: `{ key, kind (FIELD|DOCUMENT), mode (REQUIRED|OPTIONAL|CONDITIONAL), label, regex, example, enumValues[] }`. Use `mode` to decide whether to submit an item (`REQUIRED` → must submit).
 
+#### Bridge supplemental information
+
+Platform KYB information is reused automatically. Bridge may still request the following channel-specific information when it is not available from platform KYB; the actual items and their required modes are always determined by this endpoint's response.
+
+| Scope | Fields that may be requested |
+|-------|------------------------------|
+| Subject | `subject.isDao`, `subject.primaryAccountPurpose`, `subject.accountPurposeOther`, `subject.sourceOfFunds`, `subject.sourceOfFundsDescription`, `subject.naicsCodes[]`, `subject.customerTypesServed`, `subject.highRiskActivities[]`, `subject.highRiskActivitiesExplanation` |
+| Representative | `representative.taxId.type`, `representative.taxId.number`, `representative.role.beneficialOwner`, `representative.role.controllingPerson`, `representative.role.authorizedSignatory` |
+
+Existing platform KYB fields and documents, including company formation documents and representative identity documents, are omitted from the response when they can be reused. Do not hard-code the table above as a fixed required list.
+
 ### 4. Onboard a Deposit Account (Channel KYB)
 
 Submit channel onboarding. Returns onboarding `status` only; missing/invalid items are not itemized — call the requirements endpoint to learn what is still missing.
@@ -391,6 +402,17 @@ POST /api/v2/institution/wire/deposit/account/create
 | documents | object[] | No | **Provide all required documents in full every time.** Each: `{ purpose, fileId, scope, representativeRef }`. |
 
 > Do not pass `country` or `businessType` here either — they come from your platform KYB. Any `fileId` you reference must belong to this `userId`.
+
+#### Bridge hosted Terms of Service
+
+When the requirements response returns `tosMode = HOSTED_LINK`:
+
+1. Open the returned `tosUrl` in an iframe, WebView, or browser window.
+2. Let the authorized representative complete the Bridge Terms of Service acceptance flow.
+3. Obtain the agreement identifier either by listening for the hosted page's `postMessage` event containing `signedAgreementId`, or by adding a URL-encoded `redirect_uri` query parameter to `tosUrl` and reading `signed_agreement_id` from the redirect query.
+4. Pass that value as `signedAgreementId` in this request.
+
+Treat the full `tosUrl` and `signedAgreementId` as sensitive one-time flow data. Do not log or persist them.
 
 **Response Example:**
 
