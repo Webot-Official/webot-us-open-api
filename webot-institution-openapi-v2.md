@@ -65,6 +65,7 @@ Business failures are returned as HTTP `200` with `result: false`. The only two 
 | GET | `/api/v2/institution/wire/payout/orders` | List payout orders |
 | GET | `/api/v2/institution/wire/payout/order` | Get a payout order |
 | GET | `/api/v2/institution/asset/currencies` | List currencies and chains |
+| GET | `/api/v2/institution/asset/address` | Get an on-chain deposit address |
 | POST | `/api/v2/institution/asset/withdraw` | Create an on-chain withdrawal |
 | GET | `/api/v2/institution/asset/withdraw` | Query a single on-chain withdrawal |
 | GET | `/api/v2/institution/asset/records` | Query deposit/withdrawal history |
@@ -877,7 +878,38 @@ GET /api/v2/institution/asset/currencies
 
 **Response Fields:** `currencies[]`, each `{ currency, displayName, fullName, chainList[] }`, where each chain is `{ chain, txType, depositEnable, withdrawEnable, depositMin, withdrawMin, withdrawMax, withdrawFee, hasTag, confirm, withdrawPrecision, contractAddress, walletType, preConfirm }`.
 
-### 2. Create On-Chain Withdrawal
+### 2. Get Deposit Address
+
+Get the on-chain deposit address for a given `currency` + `chain` on the target sub-account. Addresses are isolated per sub-account.
+
+```
+GET /api/v2/institution/asset/address
+```
+
+**Request Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| userId | string | Yes | Sub-account UUID. |
+| currency | string | Yes | e.g. `USDT`, max 60. |
+| chain | string | Yes | A deposit-enabled chain from *List Currencies* (e.g. `TRC20`, `ERC20`), max 60. |
+
+**Response Example:**
+
+```json
+{
+  "result": true,
+  "timestamp": 1785706000000,
+  "data": { "address": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh", "tag": "" }
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| address | string | Deposit address. |
+| tag | string | Address Tag/Memo, required by some chains (e.g. XRP, EOS); empty when not applicable. |
+
+### 3. Create On-Chain Withdrawal
 
 The address whitelist must be enabled and the address must be whitelisted (or in the address book, for sub-accounts).
 
@@ -919,7 +951,7 @@ POST /api/v2/institution/asset/withdraw
 | `P_PAY_OPEN_API_WITHDRAW_ADDRESS_NOT_ALLOWED` | Address not on the configured allow list. |
 | `P_PAY_OPEN_API_WITHDRAW_ADDRESS_NOT_IN_ADDRESS_BOOK` | Sub-account address not in the address book. |
 
-### 3. Query a Single On-Chain Withdrawal
+### 4. Query a Single On-Chain Withdrawal
 
 ```
 GET /api/v2/institution/asset/withdraw
@@ -929,7 +961,7 @@ GET /api/v2/institution/asset/withdraw
 
 **Response:** an `AssetRecord` (see below).
 
-### 4. Query Deposit/Withdrawal History
+### 5. Query Deposit/Withdrawal History
 
 ```
 GET /api/v2/institution/asset/records
