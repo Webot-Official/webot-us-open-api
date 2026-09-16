@@ -378,25 +378,24 @@ GET /api/v2/institution/wire/deposit/account/requirements
 
 Platform KYB information is reused automatically. Bridge may still request the following channel-specific information when it is not available from platform KYB. Existing company formation documents and representative identity documents are also reused when available.
 
-All values in `subject.fields[]` and `representatives[].fields[]` are strings. For checkbox fields submit `"true"` or `"false"`; for multi-value fields submit a JSON-array string such as `"[\"522320\"]"`. The suggested controls below are presentation guidance for building a form.
+All values in `subject.fields[]` and `representatives[].fields[]` are strings. For boolean fields submit `"true"` or `"false"`; for multi-value fields submit a JSON-array string such as `"[\"522320\"]"`.
 
-| Key | Req | Suggested control | Rules and description |
-|-------|------|-------------------|-----------------------|
-| `subject.isDao` | Yes | Checkbox | Whether the business is a decentralized autonomous organization. Values: `true`, `false`. |
-| `subject.primaryAccountPurpose` | No | Single select | Primary purpose for using the account. Use one value from the enum below. |
-| `subject.accountPurposeOther` | Cond. | Text input | Required when `subject.primaryAccountPurpose = OTHER`; describe the other account purpose. |
-| `subject.sourceOfFunds` | No | Single select | Main source of the business funds. Use one value from the enum below. |
-| `subject.sourceOfFundsDescription` | No | Text area | Free-text details about the source of funds. |
-| `subject.naicsCodes[]` | No | Multi-value input | One or more NAICS 2022 industry codes encoded as a JSON-array string, for example `"[\"522320\"]"`. |
-| `subject.customerTypesServed` | No | Single select | Types of customers served by the business. Use one value from the enum below. |
-| `subject.highRiskActivities[]` | No | Multi-select | High-risk activities encoded as a JSON-array string. `NONE_OF_THE_ABOVE` cannot be combined with another value. |
-| `subject.highRiskActivitiesExplanation` | No | Text area | Free-text details about the selected high-risk activities. |
-| `representative.taxId.type` | Yes | Single select | Personal tax identifier type: `SSN` or `ITIN`. |
-| `representative.taxId.number` | Yes | Text input | Personal tax identifier corresponding to `representative.taxId.type`. |
-| `representative.role.beneficialOwner` | Yes | Checkbox | Whether this representative is a beneficial owner. Values: `true`, `false`. |
-| `representative.role.controllingPerson` | Yes | Checkbox | Whether this representative is a controlling person. Values: `true`, `false`. |
-| `representative.role.authorizedSignatory` | Yes | Checkbox | Whether this representative is authorized to sign for the business. Values: `true`, `false`. A person may have more than one role. |
-| `representative.role.responsibility` | No | Single select | Optional Bridge classification for this representative. Use one value from the enum below. |
+| Key | Req | Rules and description |
+|-------|------|-----------------------|
+| `subject.isDao` | Yes | Whether the business is a decentralized autonomous organization. Values: `true`, `false`. |
+| `subject.primaryAccountPurpose` | No | Primary purpose for using the account. Use one value from the enum below. |
+| `subject.accountPurposeOther` | Cond. | Required when `subject.primaryAccountPurpose = OTHER`; describe the other account purpose. |
+| `subject.sourceOfFunds` | No | Main source of the business funds. Use one value from the enum below. |
+| `subject.sourceOfFundsDescription` | No | Free-text details about the source of funds. |
+| `subject.naicsCodes[]` | No | One or more NAICS 2022 industry codes encoded as a JSON-array string, for example `"[\"522320\"]"`. |
+| `subject.customerTypesServed` | No | Types of customers served by the business. Use one value from the enum below. |
+| `subject.highRiskActivities[]` | No | High-risk activities encoded as a JSON-array string. `NONE_OF_THE_ABOVE` cannot be combined with another value. |
+| `subject.highRiskActivitiesExplanation` | No | Free-text details about the selected high-risk activities. |
+| `representative.taxId.type` | Yes | Personal tax identifier type: `SSN` or `ITIN`. |
+| `representative.taxId.number` | Yes | Personal tax identifier corresponding to `representative.taxId.type`. |
+| `representative.role.beneficialOwner` | Yes | Whether this representative is a beneficial owner. Values: `true`, `false`. |
+| `representative.role.controllingPerson` | Yes | Whether this representative is a controlling person. Values: `true`, `false`. |
+| `representative.role.authorizedSignatory` | Yes | Whether this representative is authorized to sign for the business. Values: `true`, `false`. A person may have more than one role. |
 
 **Bridge supplemental enum values:**
 
@@ -405,7 +404,6 @@ All values in `subject.fields[]` and `representatives[].fields[]` are strings. F
 - `subject.customerTypesServed`: `INDIVIDUALS`, `BUSINESSES`, `BOTH`.
 - `subject.highRiskActivities[]`: `ADULT_ENTERTAINMENT`, `GAMBLING`, `HOLD_CLIENT_FUNDS`, `INVESTMENT_SERVICES`, `LENDING_BANKING`, `MARIJUANA_OR_RELATED_SERVICES`, `MONEY_SERVICES`, `NICOTINE_TOBACCO_OR_RELATED_SERVICES`, `OPERATE_FOREIGN_EXCHANGE_VIRTUAL_CURRENCIES_BROKERAGE_OTC`, `PHARMACEUTICALS`, `PRECIOUS_METALS_PRECIOUS_STONES_JEWELRY`, `SAFE_DEPOSIT_BOX_RENTALS`, `THIRD_PARTY_PAYMENT_PROCESSING`, `WEAPONS_FIREARMS_AND_EXPLOSIVES`, `NONE_OF_THE_ABOVE`.
 - `representative.taxId.type`: `SSN`, `ITIN`.
-- `representative.role.responsibility`: `ULTIMATE_BENEFICIAL_OWNER`, `DIRECTOR`.
 
 The table is a complete reference for the Bridge-only supplemental fields currently supported by this API. The requirements response remains authoritative for which fields must be rendered and submitted for a particular user; do not submit every field unconditionally.
 
@@ -1016,28 +1014,11 @@ POST /api/v2/institution/wire/payout/order/create
 }
 ```
 
-Response fields: `{ orderId, status, amount, feeAmount, finalAmount, reason }`. `amount` is the total debit, `feeAmount` is the payout fee, and `finalAmount` is the amount sent to the destination.
+Response fields: `{ orderId, status, amount, feeAmount, finalAmount }`. `amount` is the total debit, `feeAmount` is the payout fee, and `finalAmount` is the amount sent to the destination.
 
 > **Idempotency:** the scope is one `userId`, not the entire institution. Concurrent requests with the same `userId` + `clientOrderId` create at most one order. Bridge compares `amount` by numeric value and compares `payoutAccountId` exactly: matching values return the original order, while a different amount or payout account is rejected as an idempotency conflict. On timeout/no-response, query or resend the exact request with the same key — never switch to a new key to bypass an uncertain result.
 
-If the request is valid enough to create an order but the order immediately fails (for example, a balance or compliance outcome), the response remains `result: true`; `status = FAILED` and `reason` contains the business reason. Failures before order creation return `result: false` and do not consume `clientOrderId`.
-
-Current Bridge `reason.code` values are:
-
-| code | retryable | Meaning |
-|------|:---------:|---------|
-| `AML_REJECTED` | No | Rejected by compliance review. |
-| `AML_CHECK_FAILED` | Yes | Compliance review could not be completed. |
-| `INSUFFICIENT_BALANCE` | No | Insufficient balance for this payout. |
-| `PLATFORM_WALLET_UNAVAILABLE` | Yes | Payout service is temporarily unavailable. |
-| `BANK_RETURNED` | No | The bank returned the payout. |
-| `BANK_UNDELIVERABLE` | No | The bank could not deliver the payout. |
-| `CHANNEL_CANCELED` | No | The channel canceled the payout. |
-| `CHANNEL_ERROR` | No | The payout failed at the channel. |
-| `INTERNAL_ERROR` | Yes | Internal payout processing failed. |
-| `UNKNOWN` | No | No more specific reason is available. |
-
-`retryable = true` is guidance only; idempotency rules still apply.
+If the request is valid enough to create an order but the order immediately fails, the response remains `result: true` because the order was created. Failures before order creation return `result: false` and do not consume `clientOrderId`. Use the payout-order query endpoint to obtain the order's current status and any failure or return reason.
 
 ### 2. List Payout Orders
 
@@ -1094,6 +1075,33 @@ GET /api/v2/institution/wire/payout/order
 | createdAt / updatedAt | integer | Millisecond Unix timestamps. |
 | completedAt | integer | Delivery time; `0` before completion. |
 | refundedAt | integer | Refund-complete time; `0` before refund. |
+
+`reason` is empty while the order is processing normally. When present, it has the following structure:
+
+```text
+reason.code       string
+reason.message    string
+reason.retryable  bool
+```
+
+Current Bridge `reason.code` values are:
+
+| code | retryable | Meaning |
+|------|:---------:|---------|
+| `AML_REJECTED` | No | Rejected by compliance review. |
+| `AML_CHECK_FAILED` | Yes | Compliance review could not be completed. |
+| `INSUFFICIENT_BALANCE` | No | Insufficient balance for this payout. |
+| `PLATFORM_WALLET_UNAVAILABLE` | Yes | Payout service is temporarily unavailable. |
+| `BANK_RETURNED` | No | The bank returned the payout. |
+| `BANK_UNDELIVERABLE` | No | The bank could not deliver the payout. |
+| `CHANNEL_CANCELED` | No | The channel canceled the payout. |
+| `CHANNEL_ERROR` | No | The payout failed at the channel. |
+| `INTERNAL_ERROR` | Yes | Internal payout processing failed. |
+| `UNKNOWN` | No | No more specific reason is available. |
+
+For FV Bank and StraitsX, failed orders currently return `reason.code = UNKNOWN`, `reason.message = The transfer could not be completed.`, and `reason.retryable = false`.
+
+Use `reason.code` for programmatic decisions and `reason.retryable` as retry guidance. Do not branch on `reason.message`. Retrying an order request must still follow the original `clientOrderId` idempotency rules.
 
 | status | Meaning |
 |--------|---------|
