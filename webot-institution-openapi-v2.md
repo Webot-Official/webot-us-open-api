@@ -368,7 +368,11 @@ GET /api/v2/institution/wire/deposit/account/requirements
 | termsVersion | string | Terms version; non-empty only for `INLINE_ACCEPT`. |
 | requiresBusinessType | boolean | Whether a business type is still needed to refine the list. Always `false` in this API — the business type comes from platform KYB. |
 
-`Requirement`: `{ key, kind (FIELD|DOCUMENT), mode (REQUIRED|OPTIONAL|CONDITIONAL), label, regex, example, enumValues[] }`. Use `mode` to decide whether to submit an item (`REQUIRED` → must submit).
+`Requirement`: `{ key, kind, required, mode, label, regex, example, enumValues[], condition }`.
+
+- `kind`: `FIELD` / `DOCUMENT`.
+- `mode`: `KYB_REQUIREMENT_MODE_REQUIRED` / `KYB_REQUIREMENT_MODE_OPTIONAL` / `KYB_REQUIREMENT_MODE_CONDITIONAL`. Use `mode` to decide whether to submit an item. `required` is retained for backward compatibility; only fall back to it when `mode = KYB_REQUIREMENT_MODE_UNSPECIFIED`.
+- `condition`: present for conditional requirements. It contains `{ logic, predicates[] }`; `logic` is `KYB_CONDITION_LOGIC_ALL` or `KYB_CONDITION_LOGIC_ANY`. Each predicate contains `{ fieldKey, operator, values[] }`, where `operator` is `KYB_CONDITION_OPERATOR_EQUALS`, `KYB_CONDITION_OPERATOR_NOT_EQUALS`, `KYB_CONDITION_OPERATOR_IN`, `KYB_CONDITION_OPERATOR_NOT_IN`, `KYB_CONDITION_OPERATOR_PRESENT`, or `KYB_CONDITION_OPERATOR_NOT_PRESENT`.
 
 #### Bridge supplemental information
 
@@ -392,6 +396,7 @@ All values in `subject.fields[]` and `representatives[].fields[]` are strings. F
 | `representative.role.beneficialOwner` | Yes | Checkbox | Whether this representative is a beneficial owner. Values: `true`, `false`. |
 | `representative.role.controllingPerson` | Yes | Checkbox | Whether this representative is a controlling person. Values: `true`, `false`. |
 | `representative.role.authorizedSignatory` | Yes | Checkbox | Whether this representative is authorized to sign for the business. Values: `true`, `false`. A person may have more than one role. |
+| `representative.responsibility` | No | Single select | Optional Bridge classification for this representative. Use one value from the enum below. |
 
 **Bridge supplemental enum values:**
 
@@ -400,6 +405,7 @@ All values in `subject.fields[]` and `representatives[].fields[]` are strings. F
 - `subject.customerTypesServed`: `INDIVIDUALS`, `BUSINESSES`, `BOTH`.
 - `subject.highRiskActivities[]`: `ADULT_ENTERTAINMENT`, `GAMBLING`, `HOLD_CLIENT_FUNDS`, `INVESTMENT_SERVICES`, `LENDING_BANKING`, `MARIJUANA_OR_RELATED_SERVICES`, `MONEY_SERVICES`, `NICOTINE_TOBACCO_OR_RELATED_SERVICES`, `OPERATE_FOREIGN_EXCHANGE_VIRTUAL_CURRENCIES_BROKERAGE_OTC`, `PHARMACEUTICALS`, `PRECIOUS_METALS_PRECIOUS_STONES_JEWELRY`, `SAFE_DEPOSIT_BOX_RENTALS`, `THIRD_PARTY_PAYMENT_PROCESSING`, `WEAPONS_FIREARMS_AND_EXPLOSIVES`, `NONE_OF_THE_ABOVE`.
 - `representative.taxId.type`: `SSN`, `ITIN`.
+- `representative.responsibility`: `ULTIMATE_BENEFICIAL_OWNER`, `DIRECTOR`.
 
 The table is a complete reference for the Bridge-only supplemental fields currently supported by this API. The requirements response remains authoritative for which fields must be rendered and submitted for a particular user; do not submit every field unconditionally.
 
@@ -691,7 +697,7 @@ Submission is rejected with `P_PAY_OPEN_API_INVALID_ARGUMENT` when any of the fo
 ## Wire Endpoint Conventions
 
 - The target `userId` must have platform KYB status `APPROVED`; otherwise `P_PAY_OPEN_API_INTERNAL_KYB_NOT_APPROVED` is returned.
-- Where `channel` is optional, the service routes by the user's existing channel relationship. It fails if no channel can be selected; it does not silently create a new relationship.
+- Where `channel` is optional, the service routes by the user's existing Bridge relationship. It fails if no channel can be selected; it does not silently create a new relationship.
 - `country` and `currency` use uppercase ISO codes, for example `US` and `USD`. Amounts are decimal strings, never JSON numbers.
 - `reason` has the shape `{ code, message, retryable }`. Branch on the stable `code`; use `message` only for display.
 - Rejection before an order is created returns `result: false`. If an order exists but its business outcome is failed or returned, the API call returns `result: true` with the order status and `reason`.
@@ -711,7 +717,7 @@ GET /api/v2/institution/wire/deposit/accounts
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
-| channel | string | Yes | Channel to query. |
+| channel | string | Yes | Channel to query. Currently `bridge`. |
 | currency | string | No | Currency filter. Currently `USD`. |
 | page | integer | No | Page number, starting from `1`; default `1`. |
 | size | integer | No | Page size; default `20`, maximum `100`. |
@@ -730,7 +736,7 @@ GET /api/v2/institution/wire/deposit/accounts
 | minDepositAmount | string | Minimum normal-processing amount; smaller deposits may require manual handling. |
 | maxDepositAmount | string | Maximum amount; empty means no configured maximum. |
 
-Each `FundingInstruction` contains `{ rails[], message, bankName, bankAddress, accountNumber, routingCode, routingCodeAlternate, swiftBic, accountHolderName, accountHolderAddress, reference, channelExtra[] }`. Copy `reference` and `channelExtra` exactly. Common rail values are `ach`, `wire`, `fednow`, and `international_wire`.
+Each `FundingInstruction` contains `{ rails[], message, bankName, bankAddress, accountNumber, routingCode, routingCodeAlternate, swiftBic, accountHolderName, accountHolderAddress, reference, channelExtra[] }`. Copy `reference` and `channelExtra` exactly. Bridge rail values are `ach`, `wire`, and `fednow`.
 
 ### 2. List Deposit Orders
 
@@ -743,7 +749,7 @@ GET /api/v2/institution/wire/deposit/orders
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
-| channel | string | No | Channel filter. If omitted, routes by the user's existing channel relationship. |
+| channel | string | No | Channel filter. Currently `bridge`; if omitted, routes by the user's existing Bridge relationship. |
 | currency | string | No | Currency filter. Currently `USD`. |
 | status | string | No | `PENDING` / `CREDITED` / `COMPLETED` / `FAILED` / `CANCELED`; omit for all. |
 | startTime | integer | No | Inclusive creation-time lower bound, millisecond Unix timestamp. |
@@ -765,7 +771,7 @@ GET /api/v2/institution/wire/deposit/order
 |-----------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
 | orderId | string | Yes | Deposit order ID. |
-| channel | string | Yes | Channel that owns the order. |
+| channel | string | Yes | Channel that owns the order. Currently `bridge`. |
 
 **Response Example:**
 
@@ -819,10 +825,10 @@ GET /api/v2/institution/wire/payout/account/requirements
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
-| channel | string | No | Requested channel. If omitted, routes by the user's existing channel relationship. |
+| channel | string | No | Requested channel. Currently `bridge`; if omitted, routes by the user's existing Bridge relationship. |
 | country | string | Yes | Destination bank country, ISO 3166-1 alpha-2. Bridge requires `US`. |
 | currency | string | Yes | Destination account currency, ISO 4217. Currently `USD`. |
-| rail | string | Cond. | Bridge accepts omitted or `ach_same_day`. FV Bank and StraitsX require `international_wire`. |
+| rail | string | No | Bridge accepts omitted or `ach_same_day`. |
 
 **Response Fields:** `{ channel, requirements[] }`.
 
@@ -833,15 +839,13 @@ GET /api/v2/institution/wire/payout/account/requirements
 | required | boolean | Whether the field must be submitted for this corridor. |
 | regex | string | Client-side validation pattern; empty means no additional pattern. |
 | isExtra | boolean | When `true`, submit the key/value through `spec.channelExtra`; otherwise use the matching first-level `spec` field. |
-| kind | string | `FIELD` (or empty, treated as `FIELD`) / `DOCUMENT`. A document is submitted through `spec.documents` after upload. |
+| kind | string | Bridge currently returns an empty value, which is treated as `FIELD`; it does not return document requirements for this endpoint. |
 
-The response is authoritative: render and submit the returned keys rather than maintaining a separate hard-coded field list. Current corridors are:
+The response is authoritative: render and submit the returned keys rather than maintaining a separate hard-coded field list. The current Bridge corridor is:
 
 | Channel | country | currency | rail |
 |---------|---------|----------|------|
 | `bridge` | `US` | `USD` | `ach_same_day` (may be omitted) |
-| `fvbank` | ISO alpha-2 | `USD` | `international_wire` |
-| `straitsx` | ISO alpha-2 | `USD` | `international_wire` |
 
 ### 2. Create Payout Account
 
@@ -855,7 +859,7 @@ POST /api/v2/institution/wire/payout/account/create
 |-------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
 | clientAccountId | string | Yes | Bind idempotency id, unique per `userId`, 1–64 chars. Retries must reuse the original value. |
-| channel | string | Yes | Channel. |
+| channel | string | Yes | Channel. Currently `bridge`. |
 | spec | object | Yes | Account spec — fields constrained by requirements. |
 
 **`spec` fields:**
@@ -864,17 +868,16 @@ POST /api/v2/institution/wire/payout/account/create
 |-------|------|----------|-------------|
 | currency | string | Yes | Must match the requirements request; currently `USD`. |
 | country | string | Yes | Must match the requirements request. Bridge requires `US`. |
-| rail | string | Cond. | Bridge accepts omitted or `ach_same_day`; FV Bank and StraitsX require `international_wire`. |
+| rail | string | No | Bridge accepts omitted or `ach_same_day`. |
 | holderType | string | Yes | `INDIVIDUAL` or `BUSINESS`; must match the `userId`'s approved subject type. |
 | accountHolderName | string | Yes | Name on the bank account. For Bridge it must match the approved KYC/KYB name. |
-| accountHolderAddress | object | Cond. | Required by Bridge. Structured address described below. |
+| accountHolderAddress | object | Yes | Structured US address described below. |
 | bankName | string | Yes | Destination bank name. |
-| routingNumber | string | Cond. | Bridge ABA routing number, exactly 9 digits. |
+| routingNumber | string | Yes | ABA routing number, exactly 9 digits. |
 | accountNumber | string | Yes | Destination bank account number. |
-| accountType | string | Cond. | Bridge requires `CHECKING` or `SAVINGS`. |
-| fileIds | string[] | Cond. | Bridge account-ownership proof: 1–5 uploaded file IDs, each at most 128 characters. |
-| channelExtra | object[] | Cond. | `{ key, value }` entries for requirements where `isExtra = true`. Do not send unreturned keys. |
-| documents | object[] | Cond. | `{ purpose, fileId }` entries for requirements where `kind = DOCUMENT`. |
+| accountType | string | Yes | `CHECKING` or `SAVINGS`. |
+| fileIds | string[] | Yes | Account-ownership proof: 1–5 uploaded file IDs, each at most 128 characters. |
+| channelExtra | object[] | No | Not used by Bridge; omit it. |
 
 `accountHolderAddress` fields for Bridge:
 
@@ -883,7 +886,7 @@ POST /api/v2/institution/wire/payout/account/create
 | line1 | string | Yes | Street and number, 4–35 characters; no P.O. Box or PMB. |
 | line2 | string | No | Unit, suite, floor, etc.; at most 35 characters; no P.O. Box or PMB. |
 | city | string | Yes | City. |
-| stateProvinceRegion | string | Yes | State/region; the service normalizes it to uppercase. |
+| stateProvinceRegion | string | Yes | Two-letter US state code, for example `CA`; normalized to uppercase. |
 | postalCode | string | Yes | Postal code. |
 | country | string | Yes | `US`. |
 
@@ -900,7 +903,7 @@ GET /api/v2/institution/wire/payout/accounts
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
-| channel | string | No | Channel filter. If omitted, routes by the user's existing channel relationship. |
+| channel | string | No | Channel filter. Currently `bridge`; if omitted, routes by the user's existing Bridge relationship. |
 | currency | string | No | Currency filter. Currently `USD`. |
 | page | integer | No | Page number, starting from `1`; default `1`. |
 | size | integer | No | Page size; default `20`, maximum `100`. |
@@ -938,6 +941,8 @@ Each `PayoutAccount` contains:
 
 Partial update; only fields returned in `editableFields` may be changed.
 
+> **Bridge does not currently support this operation.** A request with `channel = bridge` returns `P_PAY_OPEN_API_OPERATION_NOT_SUPPORTED`.
+
 ```
 POST /api/v2/institution/wire/payout/account/update
 ```
@@ -948,14 +953,13 @@ POST /api/v2/institution/wire/payout/account/update
 |-------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
 | accountId | string | Yes | Payout account ID. |
-| channel | string | Yes | Channel that owns the account. |
+| channel | string | Yes | Channel that owns the account. A Bridge request is currently unsupported. |
 | routingNumber | string | Cond. | Submit only when listed in `editableFields`. |
 | accountType | string | Cond. | `CHECKING` or `SAVINGS`; submit only when listed in `editableFields`. |
 | accountHolderAddress | object | Cond. | Submit only when listed in `editableFields`. |
 | channelExtra | object[] | Cond. | Corrected extra fields listed in `editableFields`. |
-| documents | object[] | Cond. | Corrected document requirements, each `{ purpose, fileId }`. |
 
-Only fields returned in `editableFields` may be changed. If no fields are returned, this endpoint is not available for that account/channel. **Response:** the updated `PayoutAccount`.
+The fields above are reserved for channels that support account updates. Bridge does not return editable fields and has no successful response for this endpoint.
 
 ### 5. Delete Payout Account
 
@@ -969,9 +973,9 @@ POST /api/v2/institution/wire/payout/account/delete
 |-------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
 | accountId | string | Yes | Payout account ID. |
-| channel | string | Yes | Channel that owns the account. |
+| channel | string | Yes | Channel that owns the account. Currently `bridge`. |
 
-**Response:** empty object. Deletion support is channel-dependent; unsupported channels return `P_PAY_OPEN_API_OPERATION_NOT_SUPPORTED`.
+**Response:** empty object. For Bridge, a successful request deactivates the external account and removes it from subsequent account lists.
 
 ---
 
@@ -989,7 +993,7 @@ POST /api/v2/institution/wire/payout/order/create
 |-------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
 | clientOrderId | string | Yes | Idempotency key, unique within this `userId`, 1–64 characters. Retries must reuse the original value. |
-| channel | string | Yes | Channel that owns `payoutAccountId`. |
+| channel | string | Yes | Channel that owns `payoutAccountId`. Currently `bridge`. |
 | payoutAccountId | string | Yes | An `AVAILABLE` target account from Create/List Payout Account. |
 | sourceCurrency | string | Yes | Asset deducted from the sub-account. |
 | targetCurrency | string | Yes | Fiat currency delivered to the bank account. |
@@ -1001,8 +1005,6 @@ POST /api/v2/institution/wire/payout/order/create
 | Channel | sourceCurrency | targetCurrency | Amount | Actual rail |
 |---------|----------------|----------------|--------|-------------|
 | `bridge` | `USD` | `USD` | Minimum `50`; configured maximum is capped by the Same Day ACH limit. | `ach_same_day` |
-| `fvbank` | `USDT` | `USD` | Minimum `100`. | `international_wire` |
-| `straitsx` | `USDT` | `USD` | Minimum `100`. | `international_wire` |
 
 **Response Example:**
 
@@ -1016,7 +1018,7 @@ POST /api/v2/institution/wire/payout/order/create
 
 Response fields: `{ orderId, status, amount, feeAmount, finalAmount, reason }`. `amount` is the total debit, `feeAmount` is the payout fee, and `finalAmount` is the amount sent to the destination.
 
-> **Idempotency:** the scope is one `userId`, not the entire institution. Concurrent identical requests with the same `userId` + `clientOrderId` create at most one order and return that order. Reusing the key with a different payload is rejected. On timeout/no-response, query or resend the exact request with the same key — never switch to a new key to bypass an uncertain result.
+> **Idempotency:** the scope is one `userId`, not the entire institution. Concurrent requests with the same `userId` + `clientOrderId` create at most one order. Bridge compares `amount` by numeric value and compares `payoutAccountId` exactly: matching values return the original order, while a different amount or payout account is rejected as an idempotency conflict. On timeout/no-response, query or resend the exact request with the same key — never switch to a new key to bypass an uncertain result.
 
 If the request is valid enough to create an order but the order immediately fails (for example, a balance or compliance outcome), the response remains `result: true`; `status = FAILED` and `reason` contains the business reason. Failures before order creation return `result: false` and do not consume `clientOrderId`.
 
@@ -1035,7 +1037,7 @@ Current Bridge `reason.code` values are:
 | `INTERNAL_ERROR` | Yes | Internal payout processing failed. |
 | `UNKNOWN` | No | No more specific reason is available. |
 
-FV Bank and StraitsX currently return `UNKNOWN` for failed payout orders. `retryable = true` is guidance only; idempotency rules still apply.
+`retryable = true` is guidance only; idempotency rules still apply.
 
 ### 2. List Payout Orders
 
@@ -1048,7 +1050,7 @@ GET /api/v2/institution/wire/payout/orders
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
-| channel | string | No | Channel filter. If omitted, routes by the user's existing channel relationship. |
+| channel | string | No | Channel filter. Currently `bridge`; if omitted, routes by the user's existing Bridge relationship. |
 | status | string | No | `PENDING` / `IN_REVIEW` / `PROCESSING` / `COMPLETED` / `FAILED` / `RETURNED` / `REFUNDING` / `REFUNDED`; omit for all. |
 | startTime | integer | No | Inclusive creation-time lower bound, millisecond Unix timestamp. |
 | endTime | integer | No | Exclusive upper bound; must be greater than `startTime`. |
@@ -1070,7 +1072,7 @@ GET /api/v2/institution/wire/payout/order
 | userId | string | Yes | Sub-account UUID. |
 | orderId | string | Cond. | Provide `orderId` or `clientOrderId`. If both are provided, `orderId` takes precedence. |
 | clientOrderId | string | Cond. | Original idempotency key, 1–64 characters. |
-| channel | string | Yes | Channel that owns the order. |
+| channel | string | Yes | Channel that owns the order. Currently `bridge`. |
 
 `PayoutOrder` fields:
 
@@ -1096,7 +1098,7 @@ GET /api/v2/institution/wire/payout/order
 | status | Meaning |
 |--------|---------|
 | `PENDING` | Accepted locally but not yet submitted to the channel. |
-| `IN_REVIEW` | Risk, compliance, or manual review is in progress. |
+| `IN_REVIEW` | Reserved normalized status; Bridge does not currently produce it. |
 | `PROCESSING` | Submitted to the channel and being delivered. |
 | `COMPLETED` | Delivered, but a later bank return is still possible. |
 | `FAILED` | Failed; if funds were already deducted, refund processing follows. |
