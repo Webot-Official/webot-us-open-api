@@ -396,7 +396,7 @@ All values in `subject.fields[]` and `representatives[].fields[]` are strings. F
 | `representative.role.beneficialOwner` | Yes | Checkbox | Whether this representative is a beneficial owner. Values: `true`, `false`. |
 | `representative.role.controllingPerson` | Yes | Checkbox | Whether this representative is a controlling person. Values: `true`, `false`. |
 | `representative.role.authorizedSignatory` | Yes | Checkbox | Whether this representative is authorized to sign for the business. Values: `true`, `false`. A person may have more than one role. |
-| `representative.responsibility` | No | Single select | Optional Bridge classification for this representative. Use one value from the enum below. |
+| `representative.role.responsibility` | No | Single select | Optional Bridge classification for this representative. Use one value from the enum below. |
 
 **Bridge supplemental enum values:**
 
@@ -405,7 +405,7 @@ All values in `subject.fields[]` and `representatives[].fields[]` are strings. F
 - `subject.customerTypesServed`: `INDIVIDUALS`, `BUSINESSES`, `BOTH`.
 - `subject.highRiskActivities[]`: `ADULT_ENTERTAINMENT`, `GAMBLING`, `HOLD_CLIENT_FUNDS`, `INVESTMENT_SERVICES`, `LENDING_BANKING`, `MARIJUANA_OR_RELATED_SERVICES`, `MONEY_SERVICES`, `NICOTINE_TOBACCO_OR_RELATED_SERVICES`, `OPERATE_FOREIGN_EXCHANGE_VIRTUAL_CURRENCIES_BROKERAGE_OTC`, `PHARMACEUTICALS`, `PRECIOUS_METALS_PRECIOUS_STONES_JEWELRY`, `SAFE_DEPOSIT_BOX_RENTALS`, `THIRD_PARTY_PAYMENT_PROCESSING`, `WEAPONS_FIREARMS_AND_EXPLOSIVES`, `NONE_OF_THE_ABOVE`.
 - `representative.taxId.type`: `SSN`, `ITIN`.
-- `representative.responsibility`: `ULTIMATE_BENEFICIAL_OWNER`, `DIRECTOR`.
+- `representative.role.responsibility`: `ULTIMATE_BENEFICIAL_OWNER`, `DIRECTOR`.
 
 The table is a complete reference for the Bridge-only supplemental fields currently supported by this API. The requirements response remains authoritative for which fields must be rendered and submitted for a particular user; do not submit every field unconditionally.
 
