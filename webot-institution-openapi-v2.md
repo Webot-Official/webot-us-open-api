@@ -865,40 +865,40 @@ POST /api/v2/institution/wire/payout/account/create
 
 **Request Body (JSON):**
 
-| Key | Req | Rules |
-|-----|:---:|-------|
-| `userId` | Yes | String. Sub-account UUID. |
-| `clientAccountId` | Yes | Idempotency key, unique within the same `userId`, 1–64 characters. Retries of the same account-creation request must reuse the original value. |
-| `channel` | Yes | String. Use `bridge`. |
-| `spec` | Yes | Object. Payout bank-account details described below. |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| userId | string | Yes | Sub-account UUID. |
+| clientAccountId | string | Yes | Idempotency key, unique within the same `userId`, 1–64 characters. Retries of the same account-creation request must reuse the original value. |
+| channel | string | Yes | Use `bridge`. |
+| spec | object | Yes | Payout bank-account details described below. |
 
 **`spec` fields:**
 
-| Key | Req | Rules |
-|-----|:---:|-------|
-| `currency` | Yes | String. `USD`; must match the requirements request. |
-| `country` | Yes | String. `US`; must match the requirements request. |
-| `rail` | No | String. Omit it or use `ach_same_day`. |
-| `holderType` | Yes | String. Use `ACCOUNT_HOLDER_TYPE_INDIVIDUAL` for a personal KYC subject or `ACCOUNT_HOLDER_TYPE_BUSINESS` for a company KYB subject. For platform onboarding, `entityType = INDIVIDUAL` maps to the former and `entityType = CORPORATE` maps to the latter. `subject.customerTypesServed` does not determine this field. |
-| `accountHolderName` | Yes | String. Name registered on the bank account. For a personal subject, it must match the approved KYC full name. For a company subject, it must match the approved KYB legal company name, not a representative's name. Matching is case-insensitive after trimming surrounding whitespace. |
-| `accountHolderAddress` | Yes | Object. Billing address registered on the bank account. For a company account, use the company's bank-account address; do not automatically copy a representative's residential address. It should match the account-ownership proof. |
-| `bankName` | Yes | String. Destination bank name. |
-| `routingNumber` | Yes | String. US ABA routing number, exactly 9 digits. |
-| `accountNumber` | Yes | String. Destination bank account number. |
-| `accountType` | Yes | String. `BANK_ACCOUNT_TYPE_CHECKING` or `BANK_ACCOUNT_TYPE_SAVINGS`. |
-| `fileIds` | Yes | String array. Account-ownership proof: 1–5 uploaded file IDs, each at most 128 characters. |
-| `channelExtra` | No | Key/value array. Not used by Bridge; omit it. |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| currency | string | Yes | `USD`; must match the requirements request. |
+| country | string | Yes | `US`; must match the requirements request. |
+| rail | string | No | Omit it or use `ach_same_day`. |
+| holderType | string | Yes | Use `ACCOUNT_HOLDER_TYPE_INDIVIDUAL` for a personal KYC subject or `ACCOUNT_HOLDER_TYPE_BUSINESS` for a company KYB subject. For platform onboarding, `entityType = INDIVIDUAL` maps to the former and `entityType = CORPORATE` maps to the latter. `subject.customerTypesServed` does not determine this field. |
+| accountHolderName | string | Yes | Name registered on the bank account. For a personal subject, it must match the approved KYC full name. For a company subject, it must match the approved KYB legal company name, not a representative's name. Matching is case-insensitive after trimming surrounding whitespace. |
+| accountHolderAddress | object | Yes | Billing address registered on the bank account. For a company account, use the company's bank-account address; do not automatically copy a representative's residential address. It should match the account-ownership proof. |
+| bankName | string | Yes | Destination bank name. |
+| routingNumber | string | Yes | US ABA routing number, exactly 9 digits. |
+| accountNumber | string | Yes | Destination bank account number. |
+| accountType | string | Yes | `BANK_ACCOUNT_TYPE_CHECKING` or `BANK_ACCOUNT_TYPE_SAVINGS`. |
+| fileIds | string[] | Yes | Account-ownership proof: 1–5 uploaded file IDs, each at most 128 characters. |
+| channelExtra | object[] | No | Key/value entries. Not used by Bridge; omit it. |
 
 `accountHolderAddress` fields for Bridge:
 
-| Key | Req | Rules |
-|-----|:---:|-------|
-| `line1` | Yes | String, 4–35 characters. Street and number only; do not repeat city or state. P.O. Box and PMB addresses are not accepted. |
-| `line2` | No | String, at most 35 characters. Unit, suite, floor, etc. P.O. Box and PMB addresses are not accepted. |
-| `city` | Yes | String. City. |
-| `stateProvinceRegion` | Yes | String. Two-letter US state code, for example `CA`; normalized to uppercase. |
-| `postalCode` | Yes | String. US postal code. |
-| `country` | Yes | String. `US`. |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| line1 | string | Yes | Street and number only, 4–35 characters; do not repeat city or state. P.O. Box and PMB addresses are not accepted. |
+| line2 | string | No | Unit, suite, floor, etc., at most 35 characters. P.O. Box and PMB addresses are not accepted. |
+| city | string | Yes | City. |
+| stateProvinceRegion | string | Yes | Two-letter US state code, for example `CA`; normalized to uppercase. |
+| postalCode | string | Yes | US postal code. |
+| country | string | Yes | `US`. |
 
 **Bridge company-account example:**
 
