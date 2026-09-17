@@ -868,7 +868,7 @@ POST /api/v2/institution/wire/payout/account/create
 | Key | Req | Rules |
 |-----|:---:|-------|
 | `userId` | Yes | String. Sub-account UUID. |
-| `clientAccountId` | Yes | String, 1–64 characters. Client-generated request identifier; reuse the same value when retrying the same account-creation request. |
+| `clientAccountId` | Yes | Idempotency key, unique within the same `userId`, 1–64 characters. Retries of the same account-creation request must reuse the original value. |
 | `channel` | Yes | String. Use `bridge`. |
 | `spec` | Yes | Object. Payout bank-account details described below. |
 
