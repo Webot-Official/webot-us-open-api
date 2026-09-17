@@ -167,7 +167,7 @@ Obtain `userId` values from [List Sub-Accounts](#2-list-sub-accounts) (or the re
 
 ## Error Codes
 
-Codes below may be returned by any endpoint (base set). Endpoint-specific business codes are listed with the relevant endpoint.
+When `result` is `false` the response carries a top-level string `code`. The codes below may be returned by any endpoint; endpoint-specific codes are listed in each endpoint's **Errors** table. Codes have no numeric form.
 
 | Error Code | Description |
 |------------|-------------|
@@ -181,6 +181,20 @@ Codes below may be returned by any endpoint (base set). Endpoint-specific busine
 | `P_PAY_OPEN_API_INTERNAL_ERROR` | Internal error. |
 | `P_PAY_OPEN_API_OPERATION_NOT_SUPPORTED` | The channel does not support this operation. Do not retry. |
 | `P_PAY_OPEN_API_CHANNEL_NOT_SUPPORTED_IN_REGION` | The requested `channel` is not available for your integration. Do not retry with the same channel. |
+
+### Wire channel error codes
+
+`wire/*` endpoints surface an extra family of codes with the `P_PAY_OPEN_API_WIRE_` prefix, passed through from the underlying fiat channel when a request is rejected and **no order is created**. Once an order is created the call succeeds (`result: true`) and any later failure is reported through the order's `reason` object instead (see the payout order `reason.code` table). A given channel returns only the WIRE codes that apply to it.
+
+The four codes below can come from **any** `wire/*` endpoint. The corridor-, account-, KYB-, and order-specific WIRE codes are listed in each endpoint's **Errors** table.
+
+| Error Code | Description |
+|------------|-------------|
+| `P_PAY_OPEN_API_WIRE_INVALID_PARAMS` | Request parameters are invalid. |
+| `P_PAY_OPEN_API_WIRE_SYSTEM_ERROR` | Channel-side system error; the result may be indeterminate — query by the original `clientOrderId` or retry unchanged. |
+| `P_PAY_OPEN_API_WIRE_NO_AVAILABLE_CHANNEL` | `channel` was omitted and no channel could be selected for this user. |
+| `P_PAY_OPEN_API_WIRE_CHANNEL_UNIMPLEMENTED` | The selected channel does not implement this capability. |
+| `P_PAY_OPEN_API_WIRE_INSUFFICIENT_BALANCE` | Insufficient balance to accept the request. |
 
 ---
 
@@ -454,11 +468,12 @@ Treat the full `tosUrl` and `signedAgreementId` as sensitive one-time flow data.
 | Error Code | Description |
 |------------|-------------|
 | `P_PAY_OPEN_API_INTERNAL_KYB_NOT_APPROVED` | Platform KYB is not approved yet; it must be approved before channel onboarding. |
-| `P_PAY_OPEN_API_KYB_ADDRESS_REJECTED` | Address rejected by the channel; `data.violations` names the rejected fields. |
-| `P_PAY_OPEN_API_KYB_DOCUMENT_REJECTED` | A document was rejected or a required field is missing. |
-| `P_PAY_OPEN_API_KYB_SUBJECT_TYPE_CONFLICT` | Another subject type already exists for this `userId`. |
-| `P_PAY_OPEN_API_KYB_MANUAL_REVIEW_REQUIRED` | Additional review is required; do not resubmit with altered details. |
-| `P_PAY_OPEN_API_KYB_SUBJECT_NOT_FOUND` | No matching company record was found. |
+| `P_PAY_OPEN_API_WIRE_ADDRESS_REJECTED` | The customer address was rejected; `data.violations` names the rejected fields. |
+| `P_PAY_OPEN_API_WIRE_CUSTOMER_INFO_REJECTED` | The customer information was rejected. |
+| `P_PAY_OPEN_API_WIRE_SUBJECT_TYPE_CONFLICT` | The subject type (individual/company) conflicts with an existing one for this `userId`. |
+| `P_PAY_OPEN_API_WIRE_KYB_OUTCOME_UNKNOWN` | The KYB outcome could not be determined; do not resubmit with altered details. |
+
+Common and wire-common codes (see [Error Codes](#error-codes)) also apply.
 
 ### 5. Get Deposit-Account Onboarding Status
 
@@ -700,6 +715,8 @@ Submission is rejected with `P_PAY_OPEN_API_INVALID_ARGUMENT` when any of the fo
 - `reason` has the shape `{ code, message, retryable }`. Branch on the stable `code`; use `message` only for display.
 - Rejection before an order is created returns `result: false`. If an order exists but its business outcome is failed or returned, the API call returns `result: true` with the order status and `reason`.
 
+Request-level channel failures (no order created) are surfaced under the `P_PAY_OPEN_API_WIRE_` prefix; see [Error Codes](#error-codes) for the full set. Once an order is created the call succeeds and the outcome is reported through the order `status` and `reason` (see the payout order `reason.code` table).
+
 ---
 
 ## Deposit Endpoints
@@ -736,6 +753,14 @@ GET /api/v2/institution/wire/deposit/accounts
 
 Each `FundingInstruction` contains `{ rails[], message, bankName, bankAddress, accountNumber, routingCode, routingCodeAlternate, swiftBic, accountHolderName, accountHolderAddress, reference, channelExtra[] }`. Copy `reference` and `channelExtra` exactly. Bridge rail values are `ach`, `wire`, and `fednow`.
 
+**Errors:**
+
+| Error Code | Description |
+|------------|-------------|
+| `P_PAY_OPEN_API_WIRE_UNSUPPORTED_CORRIDOR` | `currency` was supplied but is not `USD`. |
+
+Common and wire-common codes (see [Error Codes](#error-codes)) also apply.
+
 ### 2. List Deposit Orders
 
 ```
@@ -756,6 +781,14 @@ GET /api/v2/institution/wire/deposit/orders
 | size | integer | No | Page size; default `20`, maximum `100`. |
 
 **Response Fields:** `list[]` of `DepositOrder`, plus `total`.
+
+**Errors:**
+
+| Error Code | Description |
+|------------|-------------|
+| `P_PAY_OPEN_API_WIRE_UNSUPPORTED_CORRIDOR` | `currency` was supplied but is not `USD`. |
+
+Common and wire-common codes (see [Error Codes](#error-codes)) also apply. `channel` may be omitted here, so `P_PAY_OPEN_API_WIRE_NO_AVAILABLE_CHANNEL` / `P_PAY_OPEN_API_WIRE_CHANNEL_UNIMPLEMENTED` can be returned when no channel can be selected.
 
 ### 3. Get a Deposit Order
 
@@ -805,6 +838,14 @@ GET /api/v2/institution/wire/deposit/order
 | completedAt | integer | Settlement-complete time; `0` before completion. |
 
 `status` is `PENDING` (processing), `CREDITED` (credited but not settled), `COMPLETED`, `FAILED`, or `CANCELED`. `reason` is normally absent and is present for a failure, return, or manual-review outcome. All time fields are millisecond Unix timestamps; `creditedAt` and `completedAt` are `0` until those events occur.
+
+**Errors:**
+
+| Error Code | Description |
+|------------|-------------|
+| `P_PAY_OPEN_API_WIRE_RESOURCE_NOT_FOUND` | No order exists for this `userId`, `channel`, and `orderId`. |
+
+Common and wire-common codes (see [Error Codes](#error-codes)) also apply.
 
 ---
 
@@ -856,6 +897,14 @@ The response is authoritative for which account-detail fields are required. The 
 | Channel | country | currency | rail |
 |---------|---------|----------|------|
 | `bridge` | `US` | `USD` | `ach_same_day` (may be omitted) |
+
+**Errors:**
+
+| Error Code | Description |
+|------------|-------------|
+| `P_PAY_OPEN_API_WIRE_UNSUPPORTED_CORRIDOR` | The `country` / `currency` / `rail` combination is not supported (Bridge requires `US` + `USD`, and either no rail or `ach_same_day`). |
+
+Common and wire-common codes (see [Error Codes](#error-codes)) also apply. `channel` may be omitted here.
 
 ### 2. Create Payout Account
 
@@ -932,6 +981,15 @@ POST /api/v2/institution/wire/payout/account/create
 
 **Response:** a `PayoutAccount` object (see below).
 
+**Errors:**
+
+| Error Code | Description |
+|------------|-------------|
+| `P_PAY_OPEN_API_WIRE_KYC_REQUIRED` | The individual KYC, company KYB, or Bridge customer is not ready yet. |
+| `P_PAY_OPEN_API_WIRE_UNSUPPORTED_CORRIDOR` | The account corridor is not supported (Bridge requires `US` + `USD` + `ach_same_day`). |
+
+Common and wire-common codes (see [Error Codes](#error-codes)) also apply. A `spec` field or bank-field validation failure returns `P_PAY_OPEN_API_WIRE_INVALID_PARAMS`.
+
 ### 3. List Payout Accounts
 
 ```
@@ -977,6 +1035,14 @@ Each `PayoutAccount` contains:
 
 `rejectReason` is present when a reason is available. Only use an `accountId` whose status is `AVAILABLE` when creating a payout.
 
+**Errors:**
+
+| Error Code | Description |
+|------------|-------------|
+| `P_PAY_OPEN_API_WIRE_UNSUPPORTED_CORRIDOR` | `currency` was supplied but is not `USD`. |
+
+Common and wire-common codes (see [Error Codes](#error-codes)) also apply. `channel` may be omitted here.
+
 ### 4. Update Payout Account
 
 Partial update; only fields returned in `editableFields` may be changed.
@@ -1001,6 +1067,15 @@ POST /api/v2/institution/wire/payout/account/update
 
 The fields above are reserved for channels that support account updates. Bridge does not return editable fields and has no successful response for this endpoint.
 
+**Errors:**
+
+| Error Code | Description |
+|------------|-------------|
+| `P_PAY_OPEN_API_OPERATION_NOT_SUPPORTED` | Bridge does not support updating a payout account. |
+| `P_PAY_OPEN_API_WIRE_RESOURCE_NOT_FOUND` | No payout account exists for this `userId`, `channel`, and `accountId`. |
+
+Common and wire-common codes (see [Error Codes](#error-codes)) also apply.
+
 ### 5. Delete Payout Account
 
 ```
@@ -1016,6 +1091,14 @@ POST /api/v2/institution/wire/payout/account/delete
 | channel | string | Yes | Channel that owns the account. Currently `bridge`. |
 
 **Response:** empty object. For Bridge, a successful request deactivates the external account and removes it from subsequent account lists.
+
+**Errors:**
+
+| Error Code | Description |
+|------------|-------------|
+| `P_PAY_OPEN_API_WIRE_RESOURCE_NOT_FOUND` | No payout account exists for this `userId`, `channel`, and `accountId`. |
+
+Common and wire-common codes (see [Error Codes](#error-codes)) also apply.
 
 ---
 
@@ -1061,6 +1144,20 @@ Response fields: `{ orderId, status, amount, feeAmount, finalAmount }`. `amount`
 > **Idempotency:** the scope is one `userId`, not the entire institution. Concurrent requests with the same `userId` + `clientOrderId` create at most one order. Bridge compares `amount` by numeric value and compares `payoutAccountId` exactly: matching values return the original order, while a different amount or payout account is rejected as an idempotency conflict. On timeout/no-response, query or resend the exact request with the same key — never switch to a new key to bypass an uncertain result.
 
 If the request is valid enough to create an order but the order immediately fails, the response remains `result: true` because the order was created. Failures before order creation return `result: false` and do not consume `clientOrderId`. Use the payout-order query endpoint to obtain the order's current status and any failure or return reason.
+
+**Errors** (returned only when no order is created):
+
+| Error Code | Description |
+|------------|-------------|
+| `P_PAY_OPEN_API_WIRE_UNSUPPORTED_CORRIDOR` | The `sourceCurrency` → `targetCurrency` pair is not supported (Bridge requires `USD` → `USD`). |
+| `P_PAY_OPEN_API_WIRE_AMOUNT_OUT_OF_RANGE` | `amount` could not be parsed, is below `50`, or exceeds the channel maximum. |
+| `P_PAY_OPEN_API_WIRE_RESOURCE_NOT_FOUND` | `payoutAccountId` does not exist for this `userId`. |
+| `P_PAY_OPEN_API_WIRE_ACCOUNT_NOT_AVAILABLE` | The payout account exists but is not `AVAILABLE` / verified. |
+| `P_PAY_OPEN_API_WIRE_KYC_REQUIRED` | The individual KYC, company KYB, or customer status is not ready, and no order was created. |
+| `P_PAY_OPEN_API_WIRE_DUPLICATE_CLIENT_ORDER_ID` | The same `userId` + `clientOrderId` was reused with a different `amount` or `payoutAccountId`, and no original order can be returned. |
+| `P_PAY_OPEN_API_WIRE_AML_REJECTED` | AML rejected on the edge path where no created order can be returned. |
+
+Common and wire-common codes (see [Error Codes](#error-codes)) also apply. Bridge normally creates the order first and then runs AML, balance, and delivery, so **post-creation** failures (AML rejection, AML check failure, insufficient balance, and the rest) come back as `result: true` with the outcome in the order `reason.code` (see the payout order `reason.code` table) — not as an envelope `code`.
 
 ### 2. List Payout Orders
 
@@ -1132,7 +1229,7 @@ Current Bridge `reason.code` values are:
 |------|:---------:|---------|
 | `AML_REJECTED` | No | Rejected by compliance review. |
 | `AML_CHECK_FAILED` | Yes | Compliance review could not be completed. |
-| `INSUFFICIENT_BALANCE` | No | Insufficient balance for this payout. |
+| `INSUFFICIENT_BALANCE` | No | The balance was spent before the transfer executed (see note below). |
 | `PLATFORM_WALLET_UNAVAILABLE` | Yes | Payout service is temporarily unavailable. |
 | `BANK_RETURNED` | No | The bank returned the payout. |
 | `BANK_UNDELIVERABLE` | No | The bank could not deliver the payout. |
@@ -1141,7 +1238,7 @@ Current Bridge `reason.code` values are:
 | `INTERNAL_ERROR` | Yes | Internal payout processing failed. |
 | `UNKNOWN` | No | No more specific reason is available. |
 
-For FV Bank and StraitsX, failed orders currently return `reason.code = UNKNOWN`, `reason.message = The transfer could not be completed.`, and `reason.retryable = false`.
+`INSUFFICIENT_BALANCE` is an order-level reason, never an envelope `code`: the balance is checked but **not locked** when the order is created, so a payout that was already accepted can still fail later if the funds are spent before the transfer executes.
 
 Use `reason.code` for programmatic decisions and `reason.retryable` as retry guidance. Do not branch on `reason.message`. Retrying an order request must still follow the original `clientOrderId` idempotency rules.
 
@@ -1157,6 +1254,14 @@ Use `reason.code` for programmatic decisions and `reason.retryable` as retry gui
 | `REFUNDED` | Refund is complete. |
 
 `COMPLETED` is not irrevocable because bank rails can return a transfer later. Treat `REFUNDED` as final; a `FAILED` order that did not deduct funds may remain `FAILED`. All time fields are millisecond Unix timestamps; `completedAt` and `refundedAt` are `0` until those events occur.
+
+**Errors:**
+
+| Error Code | Description |
+|------------|-------------|
+| `P_PAY_OPEN_API_WIRE_RESOURCE_NOT_FOUND` | No order matches the given `orderId` / `clientOrderId` for this `userId` and `channel`. |
+
+Common and wire-common codes (see [Error Codes](#error-codes)) also apply.
 
 ---
 
