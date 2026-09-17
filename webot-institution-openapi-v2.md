@@ -886,7 +886,7 @@ POST /api/v2/institution/wire/payout/account/create
 | routingNumber | string | Yes | US ABA routing number, exactly 9 digits. |
 | accountNumber | string | Yes | Destination bank account number. |
 | accountType | string | Yes | `BANK_ACCOUNT_TYPE_CHECKING` or `BANK_ACCOUNT_TYPE_SAVINGS`. |
-| fileIds | string[] | Yes | Account-ownership proof: 1–5 uploaded file IDs, each at most 128 characters. |
+| fileIds | string[] | Yes | Account-ownership proof: 1–5 file IDs returned by `POST /api/v2/institution/file/upload`, each at most 128 characters. Submit the returned values unchanged. |
 | channelExtra | object[] | No | Key/value entries. Not used by Bridge; omit it. |
 
 `accountHolderAddress` fields for Bridge:
@@ -925,7 +925,7 @@ POST /api/v2/institution/wire/payout/account/create
     "routingNumber": "021000021",
     "accountNumber": "100000012345",
     "accountType": "BANK_ACCOUNT_TYPE_CHECKING",
-    "fileIds": ["fiat_transfer/88001234/account-proof.png"]
+    "fileIds": ["file-id-from-upload-response"]
   }
 }
 ```
