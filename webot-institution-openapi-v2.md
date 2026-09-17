@@ -839,10 +839,10 @@ GET /api/v2/institution/wire/payout/account/requirements
 | isExtra | boolean | When `true`, submit the key/value through `spec.channelExtra`; otherwise use the matching first-level `spec` field. |
 | kind | string | Bridge currently returns an empty value, which is treated as `FIELD`; it does not return document requirements for this endpoint. |
 
-For `isExtra = false`, Bridge currently returns RPC-style snake_case keys. Submit them through the corresponding camelCase `spec` fields:
+For requirements with `isExtra = false`, use the following create request fields:
 
-| Requirement key | Create request key |
-|-----------------|--------------------|
+| Requirements response key | Create request field |
+|---------------------------|----------------------|
 | `account_holder_name` | `spec.accountHolderName` |
 | `account_holder_address` | `spec.accountHolderAddress` |
 | `bank_name` | `spec.bankName` |
@@ -879,9 +879,9 @@ POST /api/v2/institution/wire/payout/account/create
 | currency | string | Yes | `USD`; must match the requirements request. |
 | country | string | Yes | `US`; must match the requirements request. |
 | rail | string | No | Omit it or use `ach_same_day`. |
-| holderType | string | Yes | Use `ACCOUNT_HOLDER_TYPE_INDIVIDUAL` for a personal KYC subject or `ACCOUNT_HOLDER_TYPE_BUSINESS` for a company KYB subject. For platform onboarding, `entityType = INDIVIDUAL` maps to the former and `entityType = CORPORATE` maps to the latter. `subject.customerTypesServed` does not determine this field. |
-| accountHolderName | string | Yes | Name registered on the bank account. For a personal subject, it must match the approved KYC full name. For a company subject, it must match the approved KYB legal company name, not a representative's name. Matching is case-insensitive after trimming surrounding whitespace. |
-| accountHolderAddress | object | Yes | Billing address registered on the bank account. For a company account, use the company's bank-account address; do not automatically copy a representative's residential address. It should match the account-ownership proof. |
+| holderType | string | Yes | `ACCOUNT_HOLDER_TYPE_INDIVIDUAL` for a personal KYC subject or `ACCOUNT_HOLDER_TYPE_BUSINESS` for a company KYB subject. |
+| accountHolderName | string | Yes | Approved KYC full name for a personal subject or approved KYB legal name for a company subject. Matching is case-insensitive after trimming surrounding whitespace. |
+| accountHolderAddress | object | Yes | Billing address registered on the bank account; it should match the account-ownership proof. |
 | bankName | string | Yes | Destination bank name. |
 | routingNumber | string | Yes | US ABA routing number, exactly 9 digits. |
 | accountNumber | string | Yes | Destination bank account number. |
