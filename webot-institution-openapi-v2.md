@@ -380,22 +380,24 @@ Platform KYB information is reused automatically. Bridge may still request the f
 
 All values in `subject.fields[]` and `representatives[].fields[]` are strings. For boolean fields submit `"true"` or `"false"`; for multi-value fields submit a JSON-array string such as `"[\"522320\"]"`.
 
+`Req` uses `M` (mandatory), `O` (optional), and `C` (conditional).
+
 | Key | Req | Rules and description |
 |-------|------|-----------------------|
-| `subject.isDao` | Yes | Whether the business is a decentralized autonomous organization. Values: `true`, `false`. |
-| `subject.primaryAccountPurpose` | No | Primary purpose for using the account. Use one value from the enum below. |
-| `subject.accountPurposeOther` | Cond. | Required when `subject.primaryAccountPurpose = OTHER`; describe the other account purpose. |
-| `subject.sourceOfFunds` | No | Main source of the business funds. Use one value from the enum below. |
-| `subject.sourceOfFundsDescription` | No | Free-text details about the source of funds. |
-| `subject.naicsCodes[]` | No | One or more NAICS 2022 industry codes encoded as a JSON-array string, for example `"[\"522320\"]"`. |
-| `subject.customerTypesServed` | No | Types of customers served by the business. Use one value from the enum below. |
-| `subject.highRiskActivities[]` | No | High-risk activities encoded as a JSON-array string. `NONE_OF_THE_ABOVE` cannot be combined with another value. |
-| `subject.highRiskActivitiesExplanation` | No | Free-text details about the selected high-risk activities. |
-| `representative.taxId.type` | Yes | Personal tax identifier type: `SSN` or `ITIN`. |
-| `representative.taxId.number` | Yes | Personal tax identifier corresponding to `representative.taxId.type`. |
-| `representative.role.beneficialOwner` | Yes | Whether this representative is a beneficial owner. Values: `true`, `false`. |
-| `representative.role.controllingPerson` | Yes | Whether this representative is a controlling person. Values: `true`, `false`. |
-| `representative.role.authorizedSignatory` | Yes | Whether this representative is authorized to sign for the business. Values: `true`, `false`. A person may have more than one role. |
+| `subject.isDao` | M | Whether the business is a decentralized autonomous organization. Values: `true`, `false`. |
+| `subject.primaryAccountPurpose` | O | Primary purpose for using the account. Use one value from the enum below. |
+| `subject.accountPurposeOther` | C | Required when `subject.primaryAccountPurpose = OTHER`; describe the other account purpose. |
+| `subject.sourceOfFunds` | O | Main source of the business funds. Use one value from the enum below. |
+| `subject.sourceOfFundsDescription` | O | Free-text details about the source of funds. |
+| `subject.naicsCodes[]` | O | One or more NAICS 2022 industry codes encoded as a JSON-array string, for example `"[\"522320\"]"`. |
+| `subject.customerTypesServed` | O | Types of customers served by the business. Use one value from the enum below. |
+| `subject.highRiskActivities[]` | O | High-risk activities encoded as a JSON-array string. `NONE_OF_THE_ABOVE` cannot be combined with another value. |
+| `subject.highRiskActivitiesExplanation` | O | Free-text details about the selected high-risk activities. |
+| `representative.taxId.type` | M | Personal tax identifier type: `SSN` or `ITIN`. |
+| `representative.taxId.number` | M | Personal tax identifier corresponding to `representative.taxId.type`. |
+| `representative.role.beneficialOwner` | M | Whether this representative is a beneficial owner. Values: `true`, `false`. |
+| `representative.role.controllingPerson` | M | Whether this representative is a controlling person. Values: `true`, `false`. |
+| `representative.role.authorizedSignatory` | M | Whether this representative is authorized to sign for the business. Values: `true`, `false`. A person may have more than one role. |
 
 **Bridge supplemental enum values:**
 
@@ -839,7 +841,19 @@ GET /api/v2/institution/wire/payout/account/requirements
 | isExtra | boolean | When `true`, submit the key/value through `spec.channelExtra`; otherwise use the matching first-level `spec` field. |
 | kind | string | Bridge currently returns an empty value, which is treated as `FIELD`; it does not return document requirements for this endpoint. |
 
-The response is authoritative: render and submit the returned keys rather than maintaining a separate hard-coded field list. The current Bridge corridor is:
+For `isExtra = false`, Bridge currently returns RPC-style snake_case keys. Submit them through the corresponding camelCase `spec` fields:
+
+| Requirement key | Create request key |
+|-----------------|--------------------|
+| `account_holder_name` | `spec.accountHolderName` |
+| `account_holder_address` | `spec.accountHolderAddress` |
+| `bank_name` | `spec.bankName` |
+| `routing_number` | `spec.routingNumber` |
+| `account_number` | `spec.accountNumber` |
+| `account_type` | `spec.accountType` |
+| `file_ids` | `spec.fileIds` |
+
+The response is authoritative for which account-detail fields are required. The current Bridge corridor is:
 
 | Channel | country | currency | rail |
 |---------|---------|----------|------|
@@ -853,40 +867,72 @@ POST /api/v2/institution/wire/payout/account/create
 
 **Request Body (JSON):**
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| userId | string | Yes | Sub-account UUID. |
-| clientAccountId | string | Yes | Bind idempotency id, unique per `userId`, 1–64 chars. Retries must reuse the original value. |
-| channel | string | Yes | Channel. Currently `bridge`. |
-| spec | object | Yes | Account spec — fields constrained by requirements. |
+`Req` uses `M` (mandatory), `O` (optional), and `C` (conditional).
+
+| Key | Req | Rules |
+|-----|:---:|-------|
+| `userId` | M | String. Sub-account UUID. |
+| `clientAccountId` | M | String, 1–64 characters. Client-generated request identifier; reuse the same value when retrying the same account-creation request. |
+| `channel` | M | String. Use `bridge`. |
+| `spec` | M | Object. Payout bank-account details described below. |
 
 **`spec` fields:**
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| currency | string | Yes | Must match the requirements request; currently `USD`. |
-| country | string | Yes | Must match the requirements request. Bridge requires `US`. |
-| rail | string | No | Bridge accepts omitted or `ach_same_day`. |
-| holderType | string | Yes | `INDIVIDUAL` or `BUSINESS`; must match the `userId`'s approved subject type. |
-| accountHolderName | string | Yes | Name on the bank account. For Bridge it must match the approved KYC/KYB name. |
-| accountHolderAddress | object | Yes | Structured US address described below. |
-| bankName | string | Yes | Destination bank name. |
-| routingNumber | string | Yes | ABA routing number, exactly 9 digits. |
-| accountNumber | string | Yes | Destination bank account number. |
-| accountType | string | Yes | `CHECKING` or `SAVINGS`. |
-| fileIds | string[] | Yes | Account-ownership proof: 1–5 uploaded file IDs, each at most 128 characters. |
-| channelExtra | object[] | No | Not used by Bridge; omit it. |
+| Key | Req | Rules |
+|-----|:---:|-------|
+| `currency` | M | String. `USD`; must match the requirements request. |
+| `country` | M | String. `US`; must match the requirements request. |
+| `rail` | O | String. Omit it or use `ach_same_day`. |
+| `holderType` | M | String. Use `ACCOUNT_HOLDER_TYPE_INDIVIDUAL` for a personal KYC subject or `ACCOUNT_HOLDER_TYPE_BUSINESS` for a company KYB subject. For platform onboarding, `entityType = INDIVIDUAL` maps to the former and `entityType = CORPORATE` maps to the latter. `subject.customerTypesServed` does not determine this field. |
+| `accountHolderName` | M | String. Name registered on the bank account. For a personal subject, it must match the approved KYC full name. For a company subject, it must match the approved KYB legal company name, not a representative's name. Matching is case-insensitive after trimming surrounding whitespace. |
+| `accountHolderAddress` | M | Object. Billing address registered on the bank account. For a company account, use the company's bank-account address; do not automatically copy a representative's residential address. It should match the account-ownership proof. |
+| `bankName` | M | String. Destination bank name. |
+| `routingNumber` | M | String. US ABA routing number, exactly 9 digits. |
+| `accountNumber` | M | String. Destination bank account number. |
+| `accountType` | M | String. `BANK_ACCOUNT_TYPE_CHECKING` or `BANK_ACCOUNT_TYPE_SAVINGS`. |
+| `fileIds` | M | String array. Account-ownership proof: 1–5 uploaded file IDs, each at most 128 characters. |
+| `channelExtra` | O | Key/value array. Not used by Bridge; omit it. |
 
 `accountHolderAddress` fields for Bridge:
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| line1 | string | Yes | Street and number, 4–35 characters; no P.O. Box or PMB. |
-| line2 | string | No | Unit, suite, floor, etc.; at most 35 characters; no P.O. Box or PMB. |
-| city | string | Yes | City. |
-| stateProvinceRegion | string | Yes | Two-letter US state code, for example `CA`; normalized to uppercase. |
-| postalCode | string | Yes | Postal code. |
-| country | string | Yes | `US`. |
+| Key | Req | Rules |
+|-----|:---:|-------|
+| `line1` | M | String, 4–35 characters. Street and number only; do not repeat city or state. P.O. Box and PMB addresses are not accepted. |
+| `line2` | O | String, at most 35 characters. Unit, suite, floor, etc. P.O. Box and PMB addresses are not accepted. |
+| `city` | M | String. City. |
+| `stateProvinceRegion` | M | String. Two-letter US state code, for example `CA`; normalized to uppercase. |
+| `postalCode` | M | String. US postal code. |
+| `country` | M | String. `US`. |
+
+**Bridge company-account example:**
+
+```json
+{
+  "userId": "88001234-....",
+  "clientAccountId": "PA-20260917-0001",
+  "channel": "bridge",
+  "spec": {
+    "currency": "USD",
+    "country": "US",
+    "rail": "ach_same_day",
+    "holderType": "ACCOUNT_HOLDER_TYPE_BUSINESS",
+    "accountHolderName": "Acme Corporation",
+    "accountHolderAddress": {
+      "line1": "700 Lakeview Ave",
+      "line2": "Suite 200",
+      "city": "Seattle",
+      "stateProvinceRegion": "WA",
+      "postalCode": "98101",
+      "country": "US"
+    },
+    "bankName": "Example Bank",
+    "routingNumber": "021000021",
+    "accountNumber": "100000012345",
+    "accountType": "BANK_ACCOUNT_TYPE_CHECKING",
+    "fileIds": ["fiat_transfer/88001234/account-proof.png"]
+  }
+}
+```
 
 **Response:** a `PayoutAccount` object (see below).
 
@@ -953,7 +999,7 @@ POST /api/v2/institution/wire/payout/account/update
 | accountId | string | Yes | Payout account ID. |
 | channel | string | Yes | Channel that owns the account. A Bridge request is currently unsupported. |
 | routingNumber | string | Cond. | Submit only when listed in `editableFields`. |
-| accountType | string | Cond. | `CHECKING` or `SAVINGS`; submit only when listed in `editableFields`. |
+| accountType | string | Cond. | `BANK_ACCOUNT_TYPE_CHECKING` or `BANK_ACCOUNT_TYPE_SAVINGS`; submit only when listed in `editableFields`. |
 | accountHolderAddress | object | Cond. | Submit only when listed in `editableFields`. |
 | channelExtra | object[] | Cond. | Corrected extra fields listed in `editableFields`. |
 
