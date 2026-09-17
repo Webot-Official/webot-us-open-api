@@ -839,7 +839,19 @@ GET /api/v2/institution/wire/payout/account/requirements
 | isExtra | boolean | When `true`, submit the key/value through `spec.channelExtra`; otherwise use the matching first-level `spec` field. |
 | kind | string | Bridge currently returns an empty value, which is treated as `FIELD`; it does not return document requirements for this endpoint. |
 
-The response is authoritative: render and submit the returned keys rather than maintaining a separate hard-coded field list. The current Bridge corridor is:
+For requirements with `isExtra = false`, use the following create request fields:
+
+| Requirements response key | Create request field |
+|---------------------------|----------------------|
+| `account_holder_name` | `spec.accountHolderName` |
+| `account_holder_address` | `spec.accountHolderAddress` |
+| `bank_name` | `spec.bankName` |
+| `routing_number` | `spec.routingNumber` |
+| `account_number` | `spec.accountNumber` |
+| `account_type` | `spec.accountType` |
+| `file_ids` | `spec.fileIds` |
+
+The response is authoritative for which account-detail fields are required. The current Bridge corridor is:
 
 | Channel | country | currency | rail |
 |---------|---------|----------|------|
@@ -856,37 +868,67 @@ POST /api/v2/institution/wire/payout/account/create
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
-| clientAccountId | string | Yes | Bind idempotency id, unique per `userId`, 1–64 chars. Retries must reuse the original value. |
-| channel | string | Yes | Channel. Currently `bridge`. |
-| spec | object | Yes | Account spec — fields constrained by requirements. |
+| clientAccountId | string | Yes | Idempotency key, unique within the same `userId`, 1–64 characters. Retries of the same account-creation request must reuse the original value. |
+| channel | string | Yes | Use `bridge`. |
+| spec | object | Yes | Payout bank-account details described below. |
 
 **`spec` fields:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| currency | string | Yes | Must match the requirements request; currently `USD`. |
-| country | string | Yes | Must match the requirements request. Bridge requires `US`. |
-| rail | string | No | Bridge accepts omitted or `ach_same_day`. |
-| holderType | string | Yes | `INDIVIDUAL` or `BUSINESS`; must match the `userId`'s approved subject type. |
-| accountHolderName | string | Yes | Name on the bank account. For Bridge it must match the approved KYC/KYB name. |
-| accountHolderAddress | object | Yes | Structured US address described below. |
+| currency | string | Yes | `USD`; must match the requirements request. |
+| country | string | Yes | `US`; must match the requirements request. |
+| rail | string | No | Omit it or use `ach_same_day`. |
+| holderType | string | Yes | `ACCOUNT_HOLDER_TYPE_INDIVIDUAL` for a personal KYC subject or `ACCOUNT_HOLDER_TYPE_BUSINESS` for a company KYB subject. |
+| accountHolderName | string | Yes | Approved KYC full name for a personal subject or approved KYB legal name for a company subject. Matching is case-insensitive after trimming surrounding whitespace. |
+| accountHolderAddress | object | Yes | Billing address registered on the bank account; it should match the account-ownership proof. |
 | bankName | string | Yes | Destination bank name. |
-| routingNumber | string | Yes | ABA routing number, exactly 9 digits. |
+| routingNumber | string | Yes | US ABA routing number, exactly 9 digits. |
 | accountNumber | string | Yes | Destination bank account number. |
-| accountType | string | Yes | `CHECKING` or `SAVINGS`. |
-| fileIds | string[] | Yes | Account-ownership proof: 1–5 uploaded file IDs, each at most 128 characters. |
-| channelExtra | object[] | No | Not used by Bridge; omit it. |
+| accountType | string | Yes | `BANK_ACCOUNT_TYPE_CHECKING` or `BANK_ACCOUNT_TYPE_SAVINGS`. |
+| fileIds | string[] | Yes | Account-ownership proof: 1–5 file IDs returned by `POST /api/v2/institution/file/upload`, each at most 128 characters. Submit the returned values unchanged. |
+| channelExtra | object[] | No | Key/value entries. Not used by Bridge; omit it. |
 
 `accountHolderAddress` fields for Bridge:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| line1 | string | Yes | Street and number, 4–35 characters; no P.O. Box or PMB. |
-| line2 | string | No | Unit, suite, floor, etc.; at most 35 characters; no P.O. Box or PMB. |
+| line1 | string | Yes | Street and number only, 4–35 characters; do not repeat city or state. P.O. Box and PMB addresses are not accepted. |
+| line2 | string | No | Unit, suite, floor, etc., at most 35 characters. P.O. Box and PMB addresses are not accepted. |
 | city | string | Yes | City. |
 | stateProvinceRegion | string | Yes | Two-letter US state code, for example `CA`; normalized to uppercase. |
-| postalCode | string | Yes | Postal code. |
+| postalCode | string | Yes | US postal code. |
 | country | string | Yes | `US`. |
+
+**Bridge company-account example:**
+
+```json
+{
+  "userId": "88001234-....",
+  "clientAccountId": "PA-20260917-0001",
+  "channel": "bridge",
+  "spec": {
+    "currency": "USD",
+    "country": "US",
+    "rail": "ach_same_day",
+    "holderType": "ACCOUNT_HOLDER_TYPE_BUSINESS",
+    "accountHolderName": "Acme Corporation",
+    "accountHolderAddress": {
+      "line1": "700 Lakeview Ave",
+      "line2": "Suite 200",
+      "city": "Seattle",
+      "stateProvinceRegion": "WA",
+      "postalCode": "98101",
+      "country": "US"
+    },
+    "bankName": "Example Bank",
+    "routingNumber": "021000021",
+    "accountNumber": "100000012345",
+    "accountType": "BANK_ACCOUNT_TYPE_CHECKING",
+    "fileIds": ["file-id-from-upload-response"]
+  }
+}
+```
 
 **Response:** a `PayoutAccount` object (see below).
 
@@ -953,7 +995,7 @@ POST /api/v2/institution/wire/payout/account/update
 | accountId | string | Yes | Payout account ID. |
 | channel | string | Yes | Channel that owns the account. A Bridge request is currently unsupported. |
 | routingNumber | string | Cond. | Submit only when listed in `editableFields`. |
-| accountType | string | Cond. | `CHECKING` or `SAVINGS`; submit only when listed in `editableFields`. |
+| accountType | string | Cond. | `BANK_ACCOUNT_TYPE_CHECKING` or `BANK_ACCOUNT_TYPE_SAVINGS`; submit only when listed in `editableFields`. |
 | accountHolderAddress | object | Cond. | Submit only when listed in `editableFields`. |
 | channelExtra | object[] | Cond. | Corrected extra fields listed in `editableFields`. |
 
