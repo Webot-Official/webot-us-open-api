@@ -186,7 +186,7 @@ When `result` is `false` the response carries a top-level string `code`. The cod
 
 `wire/*` endpoints surface an extra family of codes with the `P_PAY_OPEN_API_WIRE_` prefix, passed through from the underlying fiat channel when a request is rejected and **no order is created**. Once an order is created the call succeeds (`result: true`) and any later failure is reported through the order's `reason` object instead (see the payout order `reason.code` table). A given channel returns only the WIRE codes that apply to it.
 
-The codes below can come from **any** `wire/*` endpoint. The corridor-, account-, KYB-, and order-specific WIRE codes are listed in each endpoint's **Errors** table.
+The four codes below can come from **any** `wire/*` endpoint. The corridor-, account-, KYB-, and order-specific WIRE codes are listed in each endpoint's **Errors** table.
 
 | Error Code | Description |
 |------------|-------------|
@@ -194,7 +194,6 @@ The codes below can come from **any** `wire/*` endpoint. The corridor-, account-
 | `P_PAY_OPEN_API_WIRE_SYSTEM_ERROR` | Channel-side system error; the result may be indeterminate — query by the original `clientOrderId` or retry unchanged. |
 | `P_PAY_OPEN_API_WIRE_NO_AVAILABLE_CHANNEL` | `channel` was omitted and no channel could be selected for this user. |
 | `P_PAY_OPEN_API_WIRE_CHANNEL_UNIMPLEMENTED` | The selected channel does not implement this capability. |
-| `P_PAY_OPEN_API_WIRE_INSUFFICIENT_BALANCE` | Shared request-level code for channels that reject a request before creating an order. Current Bridge Create Payout reports insufficient balance on the created order instead. |
 
 ---
 
@@ -1155,7 +1154,6 @@ If the request is valid enough to create an order but the order immediately fail
 | `P_PAY_OPEN_API_WIRE_ACCOUNT_NOT_AVAILABLE` | The payout account exists but is not `AVAILABLE` / verified. |
 | `P_PAY_OPEN_API_WIRE_KYC_REQUIRED` | The individual KYC, company KYB, or customer status is not ready, and no order was created. |
 | `P_PAY_OPEN_API_WIRE_DUPLICATE_CLIENT_ORDER_ID` | The same `userId` + `clientOrderId` was reused with a different `amount` or `payoutAccountId`, and no original order can be returned. |
-| `P_PAY_OPEN_API_WIRE_AML_REJECTED` | Retained for compatibility with the shared channel contract. Current Bridge Create Payout reports AML rejection on the created order and does not return this envelope code. |
 
 Common and wire-common codes (see [Error Codes](#error-codes)) also apply. Bridge creates the order before running AML and debiting the balance. Therefore AML rejection and insufficient balance are not returned by Bridge Create Payout as envelope errors. The call returns `result: true`, the created order is `FAILED`, and the submitted `clientOrderId` remains occupied. Use the payout-order query endpoint to read `reason.code = AML_REJECTED` or `INSUFFICIENT_BALANCE`.
 
