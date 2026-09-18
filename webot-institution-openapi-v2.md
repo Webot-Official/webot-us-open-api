@@ -194,7 +194,6 @@ The four codes below can come from **any** `wire/*` endpoint. The corridor-, acc
 | `P_PAY_OPEN_API_WIRE_SYSTEM_ERROR` | Channel-side system error; the result may be indeterminate — query by the original `clientOrderId` or retry unchanged. |
 | `P_PAY_OPEN_API_WIRE_NO_AVAILABLE_CHANNEL` | `channel` was omitted and no channel could be selected for this user. |
 | `P_PAY_OPEN_API_WIRE_CHANNEL_UNIMPLEMENTED` | The selected channel does not implement this capability. |
-| `P_PAY_OPEN_API_WIRE_INSUFFICIENT_BALANCE` | Insufficient balance to accept the request. |
 
 ---
 
@@ -1155,9 +1154,8 @@ If the request is valid enough to create an order but the order immediately fail
 | `P_PAY_OPEN_API_WIRE_ACCOUNT_NOT_AVAILABLE` | The payout account exists but is not `AVAILABLE` / verified. |
 | `P_PAY_OPEN_API_WIRE_KYC_REQUIRED` | The individual KYC, company KYB, or customer status is not ready, and no order was created. |
 | `P_PAY_OPEN_API_WIRE_DUPLICATE_CLIENT_ORDER_ID` | The same `userId` + `clientOrderId` was reused with a different `amount` or `payoutAccountId`, and no original order can be returned. |
-| `P_PAY_OPEN_API_WIRE_AML_REJECTED` | AML rejected on the edge path where no created order can be returned. |
 
-Common and wire-common codes (see [Error Codes](#error-codes)) also apply. Bridge normally creates the order first and then runs AML, balance, and delivery, so **post-creation** failures (AML rejection, AML check failure, insufficient balance, and the rest) come back as `result: true` with the outcome in the order `reason.code` (see the payout order `reason.code` table) — not as an envelope `code`.
+Common and wire-common codes (see [Error Codes](#error-codes)) also apply. Bridge creates the order before running AML and debiting the balance. Therefore AML rejection and insufficient balance are not returned by Bridge Create Payout as envelope errors. The call returns `result: true`, the created order is `FAILED`, and the submitted `clientOrderId` remains occupied. Use the payout-order query endpoint to read `reason.code = AML_REJECTED` or `INSUFFICIENT_BALANCE`.
 
 ### 2. List Payout Orders
 
@@ -1238,7 +1236,7 @@ Current Bridge `reason.code` values are:
 | `INTERNAL_ERROR` | Yes | Internal payout processing failed. |
 | `UNKNOWN` | No | No more specific reason is available. |
 
-`INSUFFICIENT_BALANCE` is an order-level reason, never an envelope `code`: the balance is checked but **not locked** when the order is created, so a payout that was already accepted can still fail later if the funds are spent before the transfer executes.
+`AML_REJECTED` and `INSUFFICIENT_BALANCE` are order-level reasons for Bridge, never envelope `code` values from Create Payout. Bridge creates the order before AML and debit processing; if either step rejects the payout, query the created order for its `FAILED` status and `reason.code`.
 
 Use `reason.code` for programmatic decisions and `reason.retryable` as retry guidance. Do not branch on `reason.message`. Retrying an order request must still follow the original `clientOrderId` idempotency rules.
 
