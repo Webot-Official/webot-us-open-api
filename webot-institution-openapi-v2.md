@@ -286,7 +286,7 @@ The complete field list, required markers, formats, conditional rules, enums, an
 
 #### Channel KYB fields (`wire/deposit/account/*`)
 
-> **`channel` currently supports only `bridge`.**
+> **`channel` currently supports only `Lead Bank`.**
 
 Channel KYB fields are **dynamic** — **call `GET /wire/deposit/account/requirements` first**, then fill per the returned `Requirement` items. Do not hard-code channel field lists.
 
@@ -363,7 +363,7 @@ GET /api/v2/institution/wire/deposit/account/requirements
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
-| channel | string | Yes | Channel identifier. Currently `bridge`. |
+| channel | string | Yes | Channel identifier. Currently `Lead Bank`. |
 
 > Do not pass `country` or `businessType` — the requirement set follows the values from your platform KYB (`subject.country` / `subject.businessType`).
 
@@ -387,9 +387,9 @@ GET /api/v2/institution/wire/deposit/account/requirements
 - `mode`: `KYB_REQUIREMENT_MODE_REQUIRED` / `KYB_REQUIREMENT_MODE_OPTIONAL` / `KYB_REQUIREMENT_MODE_CONDITIONAL`. Use `mode` to decide whether to submit an item. `required` is retained for backward compatibility; only fall back to it when `mode = KYB_REQUIREMENT_MODE_UNSPECIFIED`.
 - `condition`: present for conditional requirements. It contains `{ logic, predicates[] }`; `logic` is `KYB_CONDITION_LOGIC_ALL` or `KYB_CONDITION_LOGIC_ANY`. Each predicate contains `{ fieldKey, operator, values[] }`, where `operator` is `KYB_CONDITION_OPERATOR_EQUALS`, `KYB_CONDITION_OPERATOR_NOT_EQUALS`, `KYB_CONDITION_OPERATOR_IN`, `KYB_CONDITION_OPERATOR_NOT_IN`, `KYB_CONDITION_OPERATOR_PRESENT`, or `KYB_CONDITION_OPERATOR_NOT_PRESENT`.
 
-#### Bridge supplemental information
+#### Lead Bank supplemental information
 
-Platform KYB information is reused automatically. Bridge may still request the following channel-specific information when it is not available from platform KYB. Existing company formation documents and representative identity documents are also reused when available.
+Platform KYB information is reused automatically. Lead Bank may still request the following channel-specific information when it is not available from platform KYB. Existing company formation documents and representative identity documents are also reused when available.
 
 All values in `subject.fields[]` and `representatives[].fields[]` are strings. For boolean fields submit `"true"` or `"false"`; for multi-value fields submit a JSON-array string such as `"[\"522320\"]"`.
 
@@ -410,7 +410,7 @@ All values in `subject.fields[]` and `representatives[].fields[]` are strings. F
 | `representative.role.controllingPerson` | Yes | Whether this representative is a controlling person. Values: `true`, `false`. |
 | `representative.role.authorizedSignatory` | Yes | Whether this representative is authorized to sign for the business. Values: `true`, `false`. A person may have more than one role. |
 
-**Bridge supplemental enum values:**
+**Lead Bank supplemental enum values:**
 
 - `subject.primaryAccountPurpose`: `CHARITABLE_DONATIONS`, `ECOMMERCE_RETAIL_PAYMENTS`, `INVESTMENT_PURPOSES`, `OTHER`, `PAYMENTS_TO_FRIENDS_OR_FAMILY_ABROAD`, `PAYROLL`, `PERSONAL_OR_LIVING_EXPENSES`, `PROTECT_WEALTH`, `PURCHASE_GOODS_AND_SERVICES`, `RECEIVE_PAYMENTS_FOR_GOODS_AND_SERVICES`, `TAX_OPTIMIZATION`, `THIRD_PARTY_MONEY_TRANSMISSION`, `TREASURY_MANAGEMENT`.
 - `subject.sourceOfFunds`: `BUSINESS_LOANS`, `GRANTS`, `INTER_COMPANY_FUNDS`, `INVESTMENT_PROCEEDS`, `LEGAL_SETTLEMENT`, `OWNERS_CAPITAL`, `PENSION_RETIREMENT`, `SALE_OF_ASSETS`, `SALES_OF_GOODS_AND_SERVICES`, `THIRD_PARTY_FUNDS`, `TREASURY_RESERVES`.
@@ -418,7 +418,7 @@ All values in `subject.fields[]` and `representatives[].fields[]` are strings. F
 - `subject.highRiskActivities[]`: `ADULT_ENTERTAINMENT`, `GAMBLING`, `HOLD_CLIENT_FUNDS`, `INVESTMENT_SERVICES`, `LENDING_BANKING`, `MARIJUANA_OR_RELATED_SERVICES`, `MONEY_SERVICES`, `NICOTINE_TOBACCO_OR_RELATED_SERVICES`, `OPERATE_FOREIGN_EXCHANGE_VIRTUAL_CURRENCIES_BROKERAGE_OTC`, `PHARMACEUTICALS`, `PRECIOUS_METALS_PRECIOUS_STONES_JEWELRY`, `SAFE_DEPOSIT_BOX_RENTALS`, `THIRD_PARTY_PAYMENT_PROCESSING`, `WEAPONS_FIREARMS_AND_EXPLOSIVES`, `NONE_OF_THE_ABOVE`.
 - `representative.taxId.type`: `SSN`, `ITIN`.
 
-The table is a complete reference for the Bridge-only supplemental fields currently supported by this API. The requirements response remains authoritative for which fields must be rendered and submitted for a particular user; do not submit every field unconditionally.
+The table is a complete reference for the Lead Bank-only supplemental fields currently supported by this API. The requirements response remains authoritative for which fields must be rendered and submitted for a particular user; do not submit every field unconditionally.
 
 ### 4. Onboard a Deposit Account (Channel KYB)
 
@@ -433,7 +433,7 @@ POST /api/v2/institution/wire/deposit/account/create
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
-| channel | string | Yes | Channel. Currently `bridge`; use the same channel as the requirements request. |
+| channel | string | Yes | Channel. Currently `Lead Bank`; use the same channel as the requirements request. |
 | signedAgreementId | string | Cond. | For `tosMode = HOSTED_LINK`. |
 | acceptedTerms | boolean | Cond. | For `tosMode = INLINE_ACCEPT`. |
 | termsVersion | string | Cond. | For `tosMode = INLINE_ACCEPT`. |
@@ -443,12 +443,12 @@ POST /api/v2/institution/wire/deposit/account/create
 
 > Do not pass `country` or `businessType` here either — they come from your platform KYB. Any `fileId` you reference must belong to this `userId`.
 
-#### Bridge hosted Terms of Service
+#### Lead Bank hosted Terms of Service
 
 When the requirements response returns `tosMode = HOSTED_LINK`:
 
 1. Open the returned `tosUrl` in an iframe, WebView, or browser window.
-2. Let the authorized representative complete the Bridge Terms of Service acceptance flow.
+2. Let the authorized representative complete the Lead Bank Terms of Service acceptance flow.
 3. Obtain the agreement identifier either by listening for the hosted page's `postMessage` event containing `signedAgreementId`, or by adding a URL-encoded `redirect_uri` query parameter to `tosUrl` and reading `signed_agreement_id` from the redirect query.
 4. Pass that value as `signedAgreementId` in this request.
 
@@ -485,7 +485,7 @@ GET /api/v2/institution/wire/deposit/account
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
-| channel | string | Yes | Channel. Currently `bridge`. |
+| channel | string | Yes | Channel. Currently `Lead Bank`. |
 
 **Response Fields (`data`):**
 
@@ -709,7 +709,7 @@ Submission is rejected with `P_PAY_OPEN_API_INVALID_ARGUMENT` when any of the fo
 ## Wire Endpoint Conventions
 
 - The target `userId` must have platform KYB status `APPROVED`; otherwise `P_PAY_OPEN_API_INTERNAL_KYB_NOT_APPROVED` is returned.
-- Where `channel` is optional, the service routes by the user's existing Bridge relationship. It fails if no channel can be selected; it does not silently create a new relationship.
+- Where `channel` is optional, the service routes by the user's existing Lead Bank relationship. It fails if no channel can be selected; it does not silently create a new relationship.
 - `country` and `currency` use uppercase ISO codes, for example `US` and `USD`. Amounts are decimal strings, never JSON numbers.
 - `reason` has the shape `{ code, message, retryable }`. Branch on the stable `code`; use `message` only for display.
 - Rejection before an order is created returns `result: false`. If an order exists but its business outcome is failed or returned, the API call returns `result: true` with the order status and `reason`.
@@ -731,7 +731,7 @@ GET /api/v2/institution/wire/deposit/accounts
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
-| channel | string | Yes | Channel to query. Currently `bridge`. |
+| channel | string | Yes | Channel to query. Currently `Lead Bank`. |
 | currency | string | No | Currency filter. Currently `USD`. |
 | page | integer | No | Page number, starting from `1`; default `1`. |
 | size | integer | No | Page size; default `20`, maximum `100`. |
@@ -750,7 +750,7 @@ GET /api/v2/institution/wire/deposit/accounts
 | minDepositAmount | string | Minimum normal-processing amount; smaller deposits may require manual handling. |
 | maxDepositAmount | string | Maximum amount; empty means no configured maximum. |
 
-Each `FundingInstruction` contains `{ rails[], message, bankName, bankAddress, accountNumber, routingCode, routingCodeAlternate, swiftBic, accountHolderName, accountHolderAddress, reference, channelExtra[] }`. Copy `reference` and `channelExtra` exactly. Bridge rail values are `ach`, `wire`, and `fednow`.
+Each `FundingInstruction` contains `{ rails[], message, bankName, bankAddress, accountNumber, routingCode, routingCodeAlternate, swiftBic, accountHolderName, accountHolderAddress, reference, channelExtra[] }`. Copy `reference` and `channelExtra` exactly. Lead Bank rail values are `ach`, `wire`, and `fednow`.
 
 **Errors:**
 
@@ -771,7 +771,7 @@ GET /api/v2/institution/wire/deposit/orders
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
-| channel | string | No | Channel filter. Currently `bridge`; if omitted, routes by the user's existing Bridge relationship. |
+| channel | string | No | Channel filter. Currently `Lead Bank`; if omitted, routes by the user's existing Lead Bank relationship. |
 | currency | string | No | Currency filter. Currently `USD`. |
 | status | string | No | `PENDING` / `CREDITED` / `COMPLETED` / `FAILED` / `CANCELED`; omit for all. |
 | startTime | integer | No | Inclusive creation-time lower bound, millisecond Unix timestamp. |
@@ -801,7 +801,7 @@ GET /api/v2/institution/wire/deposit/order
 |-----------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
 | orderId | string | Yes | Deposit order ID. |
-| channel | string | Yes | Channel that owns the order. Currently `bridge`. |
+| channel | string | Yes | Channel that owns the order. Currently `Lead Bank`. |
 
 **Response Example:**
 
@@ -810,7 +810,7 @@ GET /api/v2/institution/wire/deposit/order
   "result": true,
   "timestamp": 1785706000000,
   "data": {
-    "orderId": "d-9", "channel": "bridge", "creditCurrency": "USDT",
+    "orderId": "d-9", "channel": "Lead Bank", "creditCurrency": "USDT",
     "receivedCurrency": "USD", "receivedAmount": "100", "feeAmount": "1",
     "creditAmount": "99", "status": "COMPLETED", "rail": "wire", "rate": "1",
     "createdAt": 1785700000000, "updatedAt": 1785700100000,
@@ -863,10 +863,10 @@ GET /api/v2/institution/wire/payout/account/requirements
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
-| channel | string | No | Requested channel. Currently `bridge`; if omitted, routes by the user's existing Bridge relationship. |
-| country | string | Yes | Destination bank country, ISO 3166-1 alpha-2. Bridge requires `US`. |
+| channel | string | No | Requested channel. Currently `Lead Bank`; if omitted, routes by the user's existing Lead Bank relationship. |
+| country | string | Yes | Destination bank country, ISO 3166-1 alpha-2. Lead Bank requires `US`. |
 | currency | string | Yes | Destination account currency, ISO 4217. Currently `USD`. |
-| rail | string | No | Bridge accepts omitted or `ach_same_day`. |
+| rail | string | No | Lead Bank accepts omitted or `ach_same_day`. |
 
 **Response Fields:** `{ channel, requirements[] }`.
 
@@ -877,7 +877,7 @@ GET /api/v2/institution/wire/payout/account/requirements
 | required | boolean | Whether the field must be submitted for this corridor. |
 | regex | string | Client-side validation pattern; empty means no additional pattern. |
 | isExtra | boolean | When `true`, submit the key/value through `spec.channelExtra`; otherwise use the matching first-level `spec` field. |
-| kind | string | Bridge currently returns an empty value, which is treated as `FIELD`; it does not return document requirements for this endpoint. |
+| kind | string | Lead Bank currently returns an empty value, which is treated as `FIELD`; it does not return document requirements for this endpoint. |
 
 For requirements with `isExtra = false`, use the following create request fields:
 
@@ -891,17 +891,17 @@ For requirements with `isExtra = false`, use the following create request fields
 | `account_type` | `spec.accountType` |
 | `file_ids` | `spec.fileIds` |
 
-The response is authoritative for which account-detail fields are required. The current Bridge corridor is:
+The response is authoritative for which account-detail fields are required. The current Lead Bank corridor is:
 
 | Channel | country | currency | rail |
 |---------|---------|----------|------|
-| `bridge` | `US` | `USD` | `ach_same_day` (may be omitted) |
+| `Lead Bank` | `US` | `USD` | `ach_same_day` (may be omitted) |
 
 **Errors:**
 
 | Error Code | Description |
 |------------|-------------|
-| `P_PAY_OPEN_API_WIRE_UNSUPPORTED_CORRIDOR` | The `country` / `currency` / `rail` combination is not supported (Bridge requires `US` + `USD`, and either no rail or `ach_same_day`). |
+| `P_PAY_OPEN_API_WIRE_UNSUPPORTED_CORRIDOR` | The `country` / `currency` / `rail` combination is not supported (Lead Bank requires `US` + `USD`, and either no rail or `ach_same_day`). |
 
 Common and wire-common codes (see [Error Codes](#error-codes)) also apply. `channel` may be omitted here.
 
@@ -917,7 +917,7 @@ POST /api/v2/institution/wire/payout/account/create
 |-------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
 | clientAccountId | string | Yes | Idempotency key, unique within the same `userId`, 1–64 characters. Retries of the same account-creation request must reuse the original value. |
-| channel | string | Yes | Use `bridge`. |
+| channel | string | Yes | Use `Lead Bank`. |
 | spec | object | Yes | Payout bank-account details described below. |
 
 **`spec` fields:**
@@ -935,9 +935,9 @@ POST /api/v2/institution/wire/payout/account/create
 | accountNumber | string | Yes | Destination bank account number. |
 | accountType | string | Yes | `BANK_ACCOUNT_TYPE_CHECKING` or `BANK_ACCOUNT_TYPE_SAVINGS`. |
 | fileIds | string[] | Yes | Account-ownership proof: 1–5 file IDs returned by `POST /api/v2/institution/file/upload`, each at most 128 characters. Submit the returned values unchanged. |
-| channelExtra | object[] | No | Key/value entries. Not used by Bridge; omit it. |
+| channelExtra | object[] | No | Key/value entries. Not used by Lead Bank; omit it. |
 
-`accountHolderAddress` fields for Bridge:
+`accountHolderAddress` fields for Lead Bank:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -948,13 +948,13 @@ POST /api/v2/institution/wire/payout/account/create
 | postalCode | string | Yes | US postal code. |
 | country | string | Yes | `US`. |
 
-**Bridge company-account example:**
+**Lead Bank company-account example:**
 
 ```json
 {
   "userId": "88001234-....",
   "clientAccountId": "PA-20260917-0001",
-  "channel": "bridge",
+  "channel": "Lead Bank",
   "spec": {
     "currency": "USD",
     "country": "US",
@@ -984,8 +984,8 @@ POST /api/v2/institution/wire/payout/account/create
 
 | Error Code | Description |
 |------------|-------------|
-| `P_PAY_OPEN_API_WIRE_KYC_REQUIRED` | The individual KYC, company KYB, or Bridge customer is not ready yet. |
-| `P_PAY_OPEN_API_WIRE_UNSUPPORTED_CORRIDOR` | The account corridor is not supported (Bridge requires `US` + `USD` + `ach_same_day`). |
+| `P_PAY_OPEN_API_WIRE_KYC_REQUIRED` | The individual KYC, company KYB, or Lead Bank customer is not ready yet. |
+| `P_PAY_OPEN_API_WIRE_UNSUPPORTED_CORRIDOR` | The account corridor is not supported (Lead Bank requires `US` + `USD` + `ach_same_day`). |
 
 Common and wire-common codes (see [Error Codes](#error-codes)) also apply. A `spec` field or bank-field validation failure returns `P_PAY_OPEN_API_WIRE_INVALID_PARAMS`.
 
@@ -1000,7 +1000,7 @@ GET /api/v2/institution/wire/payout/accounts
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
-| channel | string | No | Channel filter. Currently `bridge`; if omitted, routes by the user's existing Bridge relationship. |
+| channel | string | No | Channel filter. Currently `Lead Bank`; if omitted, routes by the user's existing Lead Bank relationship. |
 | currency | string | No | Currency filter. Currently `USD`. |
 | page | integer | No | Page number, starting from `1`; default `1`. |
 | size | integer | No | Page size; default `20`, maximum `100`. |
@@ -1046,7 +1046,7 @@ Common and wire-common codes (see [Error Codes](#error-codes)) also apply. `chan
 
 Partial update; only fields returned in `editableFields` may be changed.
 
-> **Bridge does not currently support this operation.** A request with `channel = bridge` returns `P_PAY_OPEN_API_OPERATION_NOT_SUPPORTED`.
+> **Lead Bank does not currently support this operation.** A request with `channel = Lead Bank` returns `P_PAY_OPEN_API_OPERATION_NOT_SUPPORTED`.
 
 ```
 POST /api/v2/institution/wire/payout/account/update
@@ -1058,19 +1058,19 @@ POST /api/v2/institution/wire/payout/account/update
 |-------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
 | accountId | string | Yes | Payout account ID. |
-| channel | string | Yes | Channel that owns the account. A Bridge request is currently unsupported. |
+| channel | string | Yes | Channel that owns the account. A Lead Bank request is currently unsupported. |
 | routingNumber | string | Cond. | Submit only when listed in `editableFields`. |
 | accountType | string | Cond. | `BANK_ACCOUNT_TYPE_CHECKING` or `BANK_ACCOUNT_TYPE_SAVINGS`; submit only when listed in `editableFields`. |
 | accountHolderAddress | object | Cond. | Submit only when listed in `editableFields`. |
 | channelExtra | object[] | Cond. | Corrected extra fields listed in `editableFields`. |
 
-The fields above are reserved for channels that support account updates. Bridge does not return editable fields and has no successful response for this endpoint.
+The fields above are reserved for channels that support account updates. Lead Bank does not return editable fields and has no successful response for this endpoint.
 
 **Errors:**
 
 | Error Code | Description |
 |------------|-------------|
-| `P_PAY_OPEN_API_OPERATION_NOT_SUPPORTED` | Bridge does not support updating a payout account. |
+| `P_PAY_OPEN_API_OPERATION_NOT_SUPPORTED` | Lead Bank does not support updating a payout account. |
 | `P_PAY_OPEN_API_WIRE_RESOURCE_NOT_FOUND` | No payout account exists for this `userId`, `channel`, and `accountId`. |
 
 Common and wire-common codes (see [Error Codes](#error-codes)) also apply.
@@ -1087,9 +1087,9 @@ POST /api/v2/institution/wire/payout/account/delete
 |-------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
 | accountId | string | Yes | Payout account ID. |
-| channel | string | Yes | Channel that owns the account. Currently `bridge`. |
+| channel | string | Yes | Channel that owns the account. Currently `Lead Bank`. |
 
-**Response:** empty object. For Bridge, a successful request deactivates the external account and removes it from subsequent account lists.
+**Response:** empty object. For Lead Bank, a successful request deactivates the external account and removes it from subsequent account lists.
 
 **Errors:**
 
@@ -1115,7 +1115,7 @@ POST /api/v2/institution/wire/payout/order/create
 |-------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
 | clientOrderId | string | Yes | Idempotency key, unique within this `userId`, 1–64 characters. Retries must reuse the original value. |
-| channel | string | Yes | Channel that owns `payoutAccountId`. Currently `bridge`. |
+| channel | string | Yes | Channel that owns `payoutAccountId`. Currently `Lead Bank`. |
 | payoutAccountId | string | Yes | An `AVAILABLE` target account from Create/List Payout Account. |
 | sourceCurrency | string | Yes | Asset deducted from the sub-account. |
 | targetCurrency | string | Yes | Fiat currency delivered to the bank account. |
@@ -1126,7 +1126,7 @@ POST /api/v2/institution/wire/payout/order/create
 
 | Channel | sourceCurrency | targetCurrency | Amount | Actual rail |
 |---------|----------------|----------------|--------|-------------|
-| `bridge` | `USD` | `USD` | Minimum `50`; configured maximum is capped by the Same Day ACH limit. | `ach_same_day` |
+| `Lead Bank` | `USD` | `USD` | Minimum `50`; configured maximum is capped by the Same Day ACH limit. | `ach_same_day` |
 
 **Response Example:**
 
@@ -1140,7 +1140,7 @@ POST /api/v2/institution/wire/payout/order/create
 
 Response fields: `{ orderId, status, amount, feeAmount, finalAmount }`. `amount` is the total debit, `feeAmount` is the payout fee, and `finalAmount` is the amount sent to the destination.
 
-> **Idempotency:** the scope is one `userId`, not the entire institution. Concurrent requests with the same `userId` + `clientOrderId` create at most one order. Bridge compares `amount` by numeric value and compares `payoutAccountId` exactly: matching values return the original order, while a different amount or payout account is rejected as an idempotency conflict. On timeout/no-response, query or resend the exact request with the same key — never switch to a new key to bypass an uncertain result.
+> **Idempotency:** the scope is one `userId`, not the entire institution. Concurrent requests with the same `userId` + `clientOrderId` create at most one order. Lead Bank compares `amount` by numeric value and compares `payoutAccountId` exactly: matching values return the original order, while a different amount or payout account is rejected as an idempotency conflict. On timeout/no-response, query or resend the exact request with the same key — never switch to a new key to bypass an uncertain result.
 
 If the request is valid enough to create an order but the order immediately fails, the response remains `result: true` because the order was created. Failures before order creation return `result: false` and do not consume `clientOrderId`. Use the payout-order query endpoint to obtain the order's current status and any failure or return reason.
 
@@ -1148,14 +1148,14 @@ If the request is valid enough to create an order but the order immediately fail
 
 | Error Code | Description |
 |------------|-------------|
-| `P_PAY_OPEN_API_WIRE_UNSUPPORTED_CORRIDOR` | The `sourceCurrency` → `targetCurrency` pair is not supported (Bridge requires `USD` → `USD`). |
+| `P_PAY_OPEN_API_WIRE_UNSUPPORTED_CORRIDOR` | The `sourceCurrency` → `targetCurrency` pair is not supported (Lead Bank requires `USD` → `USD`). |
 | `P_PAY_OPEN_API_WIRE_AMOUNT_OUT_OF_RANGE` | `amount` could not be parsed, is below `50`, or exceeds the channel maximum. |
 | `P_PAY_OPEN_API_WIRE_RESOURCE_NOT_FOUND` | `payoutAccountId` does not exist for this `userId`. |
 | `P_PAY_OPEN_API_WIRE_ACCOUNT_NOT_AVAILABLE` | The payout account exists but is not `AVAILABLE` / verified. |
 | `P_PAY_OPEN_API_WIRE_KYC_REQUIRED` | The individual KYC, company KYB, or customer status is not ready, and no order was created. |
 | `P_PAY_OPEN_API_WIRE_DUPLICATE_CLIENT_ORDER_ID` | The same `userId` + `clientOrderId` was reused with a different `amount` or `payoutAccountId`, and no original order can be returned. |
 
-Common and wire-common codes (see [Error Codes](#error-codes)) also apply. Bridge creates the order before running AML and debiting the balance. Therefore AML rejection and insufficient balance are not returned by Bridge Create Payout as envelope errors. The call returns `result: true`, the created order is `FAILED`, and the submitted `clientOrderId` remains occupied. Use the payout-order query endpoint to read `reason.code = AML_REJECTED` or `INSUFFICIENT_BALANCE`.
+Common and wire-common codes (see [Error Codes](#error-codes)) also apply. Lead Bank creates the order before running AML and debiting the balance. Therefore AML rejection and insufficient balance are not returned by Lead Bank Create Payout as envelope errors. The call returns `result: true`, the created order is `FAILED`, and the submitted `clientOrderId` remains occupied. Use the payout-order query endpoint to read `reason.code = AML_REJECTED` or `INSUFFICIENT_BALANCE`.
 
 ### 2. List Payout Orders
 
@@ -1168,7 +1168,7 @@ GET /api/v2/institution/wire/payout/orders
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | userId | string | Yes | Sub-account UUID. |
-| channel | string | No | Channel filter. Currently `bridge`; if omitted, routes by the user's existing Bridge relationship. |
+| channel | string | No | Channel filter. Currently `Lead Bank`; if omitted, routes by the user's existing Lead Bank relationship. |
 | status | string | No | `PENDING` / `IN_REVIEW` / `PROCESSING` / `COMPLETED` / `FAILED` / `RETURNED` / `REFUNDING` / `REFUNDED`; omit for all. |
 | startTime | integer | No | Inclusive creation-time lower bound, millisecond Unix timestamp. |
 | endTime | integer | No | Exclusive upper bound; must be greater than `startTime`. |
@@ -1190,7 +1190,7 @@ GET /api/v2/institution/wire/payout/order
 | userId | string | Yes | Sub-account UUID. |
 | orderId | string | Cond. | Provide `orderId` or `clientOrderId`. If both are provided, `orderId` takes precedence. |
 | clientOrderId | string | Cond. | Original idempotency key, 1–64 characters. |
-| channel | string | Yes | Channel that owns the order. Currently `bridge`. |
+| channel | string | Yes | Channel that owns the order. Currently `Lead Bank`. |
 
 `PayoutOrder` fields:
 
@@ -1221,7 +1221,7 @@ reason.message    string
 reason.retryable  bool
 ```
 
-Current Bridge `reason.code` values are:
+Current Lead Bank `reason.code` values are:
 
 | code | retryable | Meaning |
 |------|:---------:|---------|
@@ -1236,14 +1236,14 @@ Current Bridge `reason.code` values are:
 | `INTERNAL_ERROR` | Yes | Internal payout processing failed. |
 | `UNKNOWN` | No | No more specific reason is available. |
 
-`AML_REJECTED` and `INSUFFICIENT_BALANCE` are order-level reasons for Bridge, never envelope `code` values from Create Payout. Bridge creates the order before AML and debit processing; if either step rejects the payout, query the created order for its `FAILED` status and `reason.code`.
+`AML_REJECTED` and `INSUFFICIENT_BALANCE` are order-level reasons for Lead Bank, never envelope `code` values from Create Payout. Lead Bank creates the order before AML and debit processing; if either step rejects the payout, query the created order for its `FAILED` status and `reason.code`.
 
 Use `reason.code` for programmatic decisions and `reason.retryable` as retry guidance. Do not branch on `reason.message`. Retrying an order request must still follow the original `clientOrderId` idempotency rules.
 
 | status | Meaning |
 |--------|---------|
 | `PENDING` | Accepted locally but not yet submitted to the channel. |
-| `IN_REVIEW` | Reserved normalized status; Bridge does not currently produce it. |
+| `IN_REVIEW` | Reserved normalized status; Lead Bank does not currently produce it. |
 | `PROCESSING` | Submitted to the channel and being delivered. |
 | `COMPLETED` | Delivered, but a later bank return is still possible. |
 | `FAILED` | Failed; if funds were already deducted, refund processing follows. |
@@ -1368,7 +1368,58 @@ GET /api/v2/institution/asset/records
 
 **Response Fields:** `records[]` of `AssetRecord`.
 
-`AssetRecord`: `{ id, clientId, currency, chain, type (deposit|withdraw), internal, address, tag, addressFrom, tagFrom, amount, fee, status, hash, confirmations, note, approvalReason, createTime, updateTime }`.
+**`AssetRecord` fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| id | string | System order ID. |
+| clientId | string | Client-supplied idempotency ID. |
+| currency | string | Currency, e.g. `USDT`. |
+| chain | string | Chain name, e.g. `TRC20`. |
+| type | string | Record type: `DEPOSIT` / `WITHDRAW`. |
+| internal | boolean | Whether this is an internal (off-chain) transfer. |
+| address | string | Destination address. |
+| tag | string | Destination address Tag/Memo; empty when not applicable. |
+| addressFrom | string | Source address. |
+| tagFrom | string | Source address Tag/Memo. |
+| amount | string | Amount. |
+| fee | string | Fee. |
+| status | string | On-chain record status; enum depends on `type`, see below. |
+| hash | string | On-chain transaction hash. |
+| confirmations | integer | Number of on-chain confirmations. |
+| note | string | Note. |
+| approvalReason | string | Approval/review reason. |
+| createTime | integer | Creation time (millisecond Unix timestamp). |
+| updateTime | integer | Last-update time (millisecond Unix timestamp). |
+
+**`status` enum** — the set depends on `type`:
+
+Deposit (`type = DEPOSIT`):
+
+| Value | Meaning |
+|-------|---------|
+| `NOTIFIED` | On-chain deposit detected, awaiting receipt. |
+| `RECEIVED` | Funds received on-chain, pending confirmations. |
+| `CONFIRMED` | Confirmed and credited (final success). |
+| `ABNORMAL` | Abnormal deposit requiring attention. |
+| `IRREGULAR` | Flagged as irregular / non-compliant. |
+| `TR_IRREGULAR` | Held by Travel Rule screening. |
+| `RISKY` | Flagged as risky by risk control. |
+| `VERIFY` | Pending manual verification. |
+
+Withdrawal (`type = WITHDRAW`):
+
+| Value | Meaning |
+|-------|---------|
+| `APPLIED` | Withdrawal request submitted. |
+| `APPROVED` | Approved, pending remittance. |
+| `SHORTAGE` | Insufficient balance to process. |
+| `REJECTED` | Rejected during review. |
+| `REMITTED` | Remitted / broadcast on-chain. |
+| `FINISHED` | Completed (final success). |
+| `CANCELED` | Canceled. |
+| `FAILED` | Failed. |
+| `HICOIN_REJECTED` | Rejected by the wallet service. |
 
 ---
 
